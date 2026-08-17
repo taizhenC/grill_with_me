@@ -1,0 +1,14 @@
+{
+  "name": "grill-with-me",
+  "version": "0.1.0",
+  "description": "Join a grill-with-me room: fetch your role's pack into the current repo.",
+  "bin": {
+    "grill-with-me": "./join.mjs"
+  },
+  "type": "module",
+  "files": ["join.mjs"],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}
