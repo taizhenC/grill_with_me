@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { GrillRoom, Role, Project } from "./schema";
 import { SPEC_HEADINGS, specPath } from "./spec-format";
 
@@ -121,6 +123,26 @@ export function renderRoomStamp(roomKey: string, version: number): string {
 }
 
 /**
+ * Skills bundled into every pack (decision 17: anyone can check or amend).
+ * Read from the repo's skills/ directory at render time so the packs always
+ * ship the current skill text; cached because packs render per download.
+ */
+const BUNDLED_SKILLS = ["check-contract", "amend-contract"] as const;
+
+let bundledSkillsCache: PackFile[] | null = null;
+
+function bundledSkillFiles(): PackFile[] {
+  if (!bundledSkillsCache) {
+    const skillsDir = join(process.cwd(), "skills");
+    bundledSkillsCache = BUNDLED_SKILLS.map((name) => ({
+      path: `.claude/skills/${name}/SKILL.md`,
+      content: readFileSync(join(skillsDir, name, "SKILL.md"), "utf8"),
+    }));
+  }
+  return bundledSkillsCache;
+}
+
+/**
  * The full file tree for one role's pack, as path -> content.
  * Paths are relative to the member's repo root.
  */
@@ -139,5 +161,6 @@ export function renderPack(
     { path: "grill/PROJECT.md", content: renderProjectMd(room.project) },
     { path: "grill/MY-ROLE.md", content: renderMyRoleMd(room.project, role) },
     { path: "grill/.room", content: renderRoomStamp(roomKey, version) },
+    ...bundledSkillFiles(),
   ];
 }

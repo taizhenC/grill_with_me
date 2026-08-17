@@ -68,6 +68,85 @@ describe("grill-host skill", () => {
   });
 });
 
+describe("merge-contract skill", () => {
+  const skill = readSkill("merge-contract");
+
+  it("requires exactly the real spec headings, in order", () => {
+    let cursor = 0;
+    for (const heading of SPEC_HEADINGS) {
+      const at = skill.indexOf(heading, cursor);
+      expect(at, `missing or out of order: ${heading}`).toBeGreaterThan(-1);
+      cursor = at + heading.length;
+    }
+  });
+
+  it("fails loudly on malformed specs instead of merging around them", () => {
+    expect(skill).toContain("STOP and report");
+    expect(skill).toContain("do not merge around it");
+  });
+
+  it("routes contradictions to UNRESOLVED and gaps to NOBODY OWNS THIS", () => {
+    expect(skill).toContain("## ⚠️ UNRESOLVED — decide this before you code");
+    expect(skill).toContain("## ⚠️ NOBODY OWNS THIS");
+    expect(skill).toContain("Never resolve a contradiction yourself");
+  });
+
+  it("emits contract.ts on TypeScript stacks and verifies it compiles", () => {
+    expect(skill).toContain("grill/contract.ts");
+    expect(skill).toContain("tsc --noEmit");
+  });
+});
+
+describe("check-contract skill", () => {
+  const skill = readSkill("check-contract");
+
+  it("scopes the check from the contract instead of reading the repo (P0-3)", () => {
+    expect(skill).toContain("Do NOT read the whole repo");
+    expect(skill).toContain("Derive the file set from the contract");
+  });
+
+  it("treats amendments as authoritative (decision 16)", () => {
+    expect(skill).toContain("Amendments override");
+  });
+
+  it("attributes findings to roles and offers three outcomes (decision 9)", () => {
+    expect(skill).toContain("who to go talk to");
+    expect(skill).toContain("fix the code");
+    expect(skill).toContain("contract is wrong");
+    expect(skill).toContain("accepted, ignore");
+  });
+
+  it("guards against manufactured findings and re-reported noise (P1-4)", () => {
+    expect(skill).toContain("empty report");
+    expect(skill).toContain("NEW");
+  });
+
+  it("checks pack staleness via .room (decision 18)", () => {
+    expect(skill).toContain("grill/.room");
+    expect(skill).toContain("stale");
+  });
+});
+
+describe("amend-contract skill", () => {
+  const skill = readSkill("amend-contract");
+
+  it("appends to an audit trail and updates the contract in place", () => {
+    expect(skill).toContain("CONTRACT-CHANGES.md");
+    expect(skill).toContain("append-only");
+    expect(skill).toContain("in place");
+  });
+
+  it("surfaces un-agreed changes instead of refusing or hiding them", () => {
+    expect(skill).toContain("not yet agreed");
+    expect(skill).toContain("Do not refuse");
+  });
+
+  it("keeps contract.ts in sync when present", () => {
+    expect(skill).toContain("grill/contract.ts");
+    expect(skill).toContain("tsc --noEmit");
+  });
+});
+
 describe("spec headings are stated once and reused", () => {
   it("SPEC_HEADINGS has the five sections the plan documents", () => {
     expect(SPEC_HEADINGS).toEqual([

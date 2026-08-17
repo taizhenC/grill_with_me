@@ -48,7 +48,23 @@ describe("renderPack", () => {
       "grill/PROJECT.md",
       "grill/MY-ROLE.md",
       "grill/.room",
+      ".claude/skills/check-contract/SKILL.md",
+      ".claude/skills/amend-contract/SKILL.md",
     ]);
+  });
+
+  it("bundles the real check/amend skills, not stubs (decision 17)", () => {
+    const files = renderPack(room(), "backend", "k", 1);
+    const check = files.find((f) =>
+      f.path.endsWith("check-contract/SKILL.md"),
+    )!;
+    const amend = files.find((f) =>
+      f.path.endsWith("amend-contract/SKILL.md"),
+    )!;
+    expect(check.content).toContain("name: check-contract");
+    expect(check.content).toContain("CONTRACT-CHANGES.md");
+    expect(amend.content).toContain("name: amend-contract");
+    expect(amend.content).toContain("append-only");
   });
 
   it("throws on an unknown role slug", () => {
