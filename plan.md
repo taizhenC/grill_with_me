@@ -2,7 +2,7 @@
 
 > Grill a whole team about their project — each member in their own CLI, with their own agent — then hold everyone to the contract that comes out of it.
 
-**Status:** pre-build. Rewritten 2026-08-17 (architecture reversal, §5) and revised the same day with the improvements in §5 decisions 13–18.
+**Status: v1 built** (2026-08-17, branch `build/v1-skills-and-app`). All four skills, the web app, the join CLI, and the examples exist and are tested — 75 unit/contract tests plus an end-to-end smoke of publish → join page → CLI join → republish. Remaining before calling M-milestones done: the *behavioral* exit criteria that need live grill runs (M1's reliability gate, M5's false-positive gate) and deployment (Vercel + Supabase). Rewritten 2026-08-17 (architecture reversal, §5); revised with §5 decisions 13–19.
 
 ---
 
@@ -49,8 +49,8 @@ HOST — local agent
                 │  npx grill-with-me join <key>
                 ▼
 MEMBERS — local agent
-  run  grill-my-role  skill
-  ├─ reads sibling specs already committed by teammates
+  run  /grill-me   (MY-ROLE.md supplies scope + output contract)
+  ├─ reads the repo and sibling specs already committed by teammates
   └─ writes  grill/<role>-spec.md  →  git commit
                 │
                 ▼
@@ -79,23 +79,59 @@ ANYONE — local agent   ANYONE — local agent
 
 ---
 
-## 3. The five skills
+## 3. The four skills
 
 These are the product. Everything else is plumbing.
 
 | Skill | Who runs it | When | Writes |
 |---|---|---|---|
 | **`grill-host`** | Host | Once, at the start | `grill-room.json` — brief + roles + a pack per role |
-| **`grill-my-role`** | Each member | After joining | `grill/<role>-spec.md` |
 | **`merge-contract`** | Host | Once specs are committed | `grill/CONTRACT.md` **+ `grill/contract.ts`** |
 | **`amend-contract`** | **Anyone** | Whenever reality changes | appends to `grill/CONTRACT-CHANGES.md` |
 | **`check-contract`** | **Anyone** | Repeatedly, during the build | `grill/CHECK-REPORT.md`, findings tagged by role |
 
+**There is deliberately no member-grill skill.** Members run the existing `grill-me` (or any equivalent), and `MY-ROLE.md` supplies everything it needs. See *The member grill* below.
+
 ### `grill-host`
 Unbounded interview about the product: what it does, what the demo shows, what's out of scope, what must work, hours until the deadline, **and the stack the team already knows** (which decides whether a typed contract is emitted later). Then proposes roles as **layers** — Frontend, Backend, UI/UX, finer when warranted. Host edits and confirms. Emits one `grill-room.json`.
 
-### `grill-my-role`
-The heart of the product. Unbounded grill about that member's layer, with a running summary and an "I'm done" exit. Two unfair advantages a web form structurally cannot have:
+### The member grill — no skill required
+
+**We don't write a grilling skill. `grill-me` already exists and does this well.**
+
+Instead, `MY-ROLE.md` carries everything: the role's scope, the grilling instruction, and the output contract. The member runs `/grill-me`; the agent has already loaded `AGENTS.md` → `MY-ROLE.md` and grills them correctly.
+
+```markdown
+# Your role: Backend
+
+## What you own
+The API layer and data model for the analyze flow...
+
+## Before we start
+Read grill/PROJECT.md, any grill/*-spec.md your teammates have already
+committed, and the repo you're standing in.
+
+## The grill
+Interview me relentlessly about MY LAYER ONLY until we reach a shared
+understanding. One question at a time, with your recommended answer.
+Look facts up in the repo; the decisions are mine.
+Prefer questions that reference something real — existing code, or something
+a teammate wrote in their spec.
+
+## When I say I'm done
+Write grill/backend-spec.md with exactly these headings:
+  ## Scope
+  ## What I own
+  ## What I need from other roles
+  ## Decisions made
+  ## Still unclear
+```
+
+**Why a markdown file beats a skill here:** it's portable — this works in Cursor and Copilot, a `.claude/skills/` file doesn't — and the grilling instruction being inline means it works for someone who's never heard of `grill-me`. Members install nothing.
+
+**The cost, stated plainly:** `grill-me` ends at *"do not act until I confirm shared understanding"* — writing the spec file isn't native to it. Whether `grill/backend-spec.md` lands with the right headings depends on the agent honoring `MY-ROLE.md`. `merge-contract` parses those headings, so it **must validate and fail loudly** rather than merge garbage. That's P0-2, and it's now the most load-bearing gap in the plan.
+
+Even without a skill of our own, the member grill keeps two advantages a web form structurally cannot have:
 
 - **It reads the repo.** It sees `package.json`, the folder structure, what's scaffolded — so it asks *"you already have a `users` table with `email` and `created_at`; does the profile page need anything beyond those?"*
 - **It reads sibling specs.** Any `grill/*-spec.md` a teammate already committed is context. So the backend dev's grill asks *"Frontend says the results page needs a confidence score per item — is that in your response shape?"*
@@ -175,12 +211,11 @@ grill/
   MY-ROLE.md                               # yours: scope, what you'll be asked about
   .room                                    # room key + pack version (staleness check)
 .claude/skills/
-  grill-my-role/SKILL.md
   check-contract/SKILL.md
   amend-contract/SKILL.md
 ```
 
-Check and amend ship in **every** pack — decision 17, anyone can run them.
+No member-grill skill — `MY-ROLE.md` carries it (decision 19). Check and amend ship in **every** pack, because anyone can run them (decision 17).
 
 `.room` stamps the room key and pack version so `check-contract` can warn when the host has republished and you're holding a stale pack.
 
@@ -238,6 +273,7 @@ The first version of this plan put the grilling **in the web app**, with our API
 | 16 | **The contract is amendable, and amendments are authoritative.** | A contract that can't be corrected becomes noise within hours, and a noisy check gets ignored. Non-negotiable for the product to survive a real build. |
 | 17 | **Anyone can run `check-contract` and `amend-contract`** — not just the host. | The host is heads-down at hour 18. A bottleneck on the only person who can verify or correct the contract is a bottleneck on the whole feature. |
 | 18 | **Packs are version-stamped** (`.room`). | Host republishes v2; a v1 holder currently has no way to know. |
+| 19 | **No member-grill skill.** Members run the existing `grill-me`; `MY-ROLE.md` supplies scope, instructions, and the output contract. | Don't rebuild what exists. A markdown file is portable across agents where a `.claude/skills/` file isn't, works for someone who's never heard of `grill-me`, and means members install nothing. Cost: the spec file isn't guaranteed to be well-formed — pushed onto `merge-contract` to validate (P0-2). |
 
 ---
 
@@ -270,27 +306,21 @@ Deliberately dumb. If it starts growing a brain, something has gone wrong.
 
 ## 7. Data model
 
-Two tables.
+One table. *(Simplified from two during the build: packs are rendered from the stored room `jsonb` at download time — see `lib/pack.ts` — so a `role_packs` table would only be a cache to keep in sync. The host skill emits semantics, the app owns the templates; template fixes ship without hosts re-running their grill.)*
 
 ```sql
 rooms
-  id             uuid pk
-  key            text unique        -- unguessable slug, e.g. "blue-tiger-42"
-  host_token     text               -- how the host re-publishes
-  project_name   text
-  version        int default 1      -- bumps on re-publish; mirrored into .room
-  created_at     timestamptz
-  expires_at     timestamptz        -- 30-day TTL
-
-role_packs
-  room_id        uuid fk
-  role_slug      text               -- 'frontend'
-  role_name      text               -- 'Frontend'
-  description    text               -- shown on the pick-a-role screen
-  files          jsonb              -- { "AGENTS.md": "...", "grill/MY-ROLE.md": "..." }
-  claimed_by     text null          -- display name, informational only
-  primary key (room_id, role_slug)
+  id          uuid pk
+  key         text unique        -- speakable slug, e.g. "pearl-summit-88"
+  host_token  text               -- bearer secret for re-publish; never sent to members
+  version     int default 1      -- bumps on re-publish; stamped into grill/.room
+  room        jsonb              -- the validated grill-room.json
+  claims      jsonb              -- { "frontend": "Alice" } — informational only
+  created_at  timestamptz
+  expires_at  timestamptz        -- 30-day TTL, enforced on read (P1-5)
 ```
+
+RLS is enabled with **no policies**: only the server's service key touches the table; the anon key is never used anywhere. An in-memory store with identical semantics backs tests and credential-less local dev.
 
 No participants, turns, panels, or conflicts tables — those lived in the server-side-grilling design and died with it.
 
@@ -302,13 +332,14 @@ One developer with a coding agent. Exit criteria are binary.
 
 > **Sequencing note:** you asked to start with role assignment and pack download. I've put the role-grill skill first anyway — shipping distribution before the payload is proven is building a delivery truck with no cargo. M1–M3 together produce exactly what you asked for. Override if you disagree.
 
-### M1 — `grill-my-role` skill *(2 days)*
-The payload. No web app, no host skill — hand-write `PROJECT.md` and `MY-ROLE.md`, install by hand, grill yourself.
+### M1 — the `MY-ROLE.md` template *(1 day)*
+The payload. No skill to write — design the template, then tune it against real runs. No web app, no host skill: hand-write a `PROJECT.md` and a `MY-ROLE.md`, run `/grill-me`, grill yourself. This milestone is **prompt iteration, not authoring**.
 
 - [ ] After 8 answers the spec contains at least one **concrete API or data shape**, and **zero statements the user did not make**
 - [ ] Run in a repo with existing code, it asks ≥1 question referencing something real in that repo
 - [ ] With a sibling `grill/*-spec.md` present, it asks ≥1 question referencing that teammate's spec
 - [ ] "I'm done" produces a well-formed spec with the fixed headings at any point — never a half-written file
+- [ ] **Reliability gate:** across 5 runs, the spec file is written with all five headings at least 4 times. Below that, `MY-ROLE.md` isn't instructing strongly enough — fix the template, don't paper over it in `merge-contract`
 
 ### M2 — `grill-host` skill *(1–2 days)*
 Host grill → proposed roles → confirm → `grill-room.json`.
@@ -346,7 +377,7 @@ Two halves of one loop — build them together.
 ### M6 — Polish *(1–2 days)*
 Re-publish → v2. Claim tracking. 30-day TTL. Example room + example outputs in the repo. README a stranger can follow.
 
-**Total: ~11–14 working days.**
+**Total: ~10–13 working days.**
 
 ---
 
@@ -355,7 +386,8 @@ Re-publish → v2. Claim tracking. 30-day TTL. Example room + example outputs in
 | Risk | Severity | Mitigation |
 |---|---|---|
 | **`check-contract` can't fit the repo in context.** A hackathon repo at hour 20 is not small. | **High** | Scope the check: derive the file set **from the contract** (only files implementing named endpoints/models), never read the whole tree. Prototype before committing to M5's estimate — this is the milestone most likely to slip. |
-| **Setup friction.** Four people, four agents, each installing before they can start. | Medium *(was High)* | `npx … join` (decision 14) removes the download/unzip/where-does-this-go failures. Remaining risk is skill-install per agent — test the README on someone who hasn't seen the project. |
+| **Spec files come back malformed**, so `merge-contract` can't parse them. | **High** *(new top gap)* | The trade for decision 19: no skill means no guaranteed output. Mitigate on both ends — `MY-ROLE.md` states the headings unmissably (M1 reliability gate), and `merge-contract` validates and fails loudly rather than merging garbage (P0-2). |
+| **Setup friction.** Four people, four agents. | Low *(was High)* | Largely designed out. `npx … join` (decision 14) removes download/unzip/where-does-this-go, and decision 19 means **members install nothing at all** — they run a skill they already have, or follow instructions inline in a markdown file. Still test the README on someone who hasn't seen the project. |
 | **The contract goes stale and the check becomes noise.** | Medium *(was unmitigated)* | `amend-contract` (decision 16) + three outcomes per finding. Watch for it anyway in real use: if people amend instead of fixing, the tool is being used to paper over drift. |
 | **Grill quality varies by the member's model.** | Medium | Fixed section headings so even a mediocre grill parses. `merge-contract` should flag thin specs rather than silently merging them. |
 | **Members never run the skill.** Nothing forces them. | Medium | Claim tracking (M6) gives the host visibility. Beyond that it's social, not software. |
@@ -382,7 +414,7 @@ Re-publish → v2. Claim tracking. 30-day TTL. Example room + example outputs in
 | ID | Gap | Fix | Lands |
 |---|---|---|---|
 | **P0-1** | **`grill-room.json` has no schema** — the contract between two components that ship separately. | Define and version it before M2. Validate on write and on upload. | M2 |
-| **P0-2** | **Spec markdown has no fixed structure.** `merge-contract` must parse whatever `grill-my-role` emitted. | Fix section headings in M1; merge validates them. Unparseable spec fails loudly, never merges silently. | M1 |
+| **P0-2** | **Spec structure isn't guaranteed** — the load-bearing gap. With no member-grill skill (decision 19), nothing *enforces* that `grill-me` writes the five headings; `MY-ROLE.md` only asks. | Both ends: headings stated unmissably in `MY-ROLE.md` (M1 reliability gate), **and** `merge-contract` validates them. An unparseable spec must fail loudly and name the file — never merge silently. | M1 + M4 |
 | **P0-3** | **`check-contract` scoping is undesigned** — the highest-risk unknown in the build. | Prototype file selection before committing to M5's estimate. | Before M5 |
 | **P0-4** | **No skill-install instructions.** Every member hits this in the first 60 seconds. | README + one-liner printed by the CLI. Test on someone unfamiliar with the project. | M3 |
 
