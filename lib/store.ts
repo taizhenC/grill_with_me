@@ -183,22 +183,35 @@ export class SupabaseStore implements RoomStore {
 
 /* ------------------------------------------------------------------ */
 
-let storeSingleton: RoomStore | null = null;
+/**
+ * The singleton lives on globalThis, not at module level: Next.js compiles
+ * pages and route handlers into separate bundles, each with its own module
+ * instance, so a module-level singleton would give the join page a different
+ * MemoryStore than the publish API. With Supabase configured this wouldn't
+ * matter (state is external); for credential-less dev it's the difference
+ * between working and 404ing.
+ */
+const GLOBAL_KEY = Symbol.for("grill-with-me.store");
+
+type GlobalWithStore = { [GLOBAL_KEY]?: RoomStore };
 
 export function getStore(): RoomStore {
-  if (storeSingleton) return storeSingleton;
+  const g = globalThis as GlobalWithStore;
+  if (g[GLOBAL_KEY]) return g[GLOBAL_KEY];
   const url = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_KEY;
-  storeSingleton =
+  g[GLOBAL_KEY] =
     url && serviceKey
       ? new SupabaseStore(
           createClient(url, serviceKey, { auth: { persistSession: false } }),
         )
       : new MemoryStore();
-  return storeSingleton;
+  return g[GLOBAL_KEY];
 }
 
 /** Test hook. */
 export function setStore(store: RoomStore | null): void {
-  storeSingleton = store;
+  const g = globalThis as GlobalWithStore;
+  if (store === null) delete g[GLOBAL_KEY];
+  else g[GLOBAL_KEY] = store;
 }

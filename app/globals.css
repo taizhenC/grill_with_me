@@ -1,0 +1,138 @@
+:root {
+  --bg: #faf7f2;
+  --ink: #1f1d1a;
+  --muted: #6b6459;
+  --line: #e4ddd2;
+  --accent: #b4552d;
+  --accent-ink: #ffffff;
+  --card: #ffffff;
+  --ok: #2d6a4f;
+  --warn: #9a3412;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #191713;
+    --ink: #ece7de;
+    --muted: #a39a8c;
+    --line: #35302a;
+    --accent: #d9714a;
+    --accent-ink: #191713;
+    --card: #211e1a;
+    --ok: #74c69d;
+    --warn: #fdba74;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.55;
+}
+
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 3rem 1.25rem 5rem;
+}
+
+h1 {
+  font-size: 2rem;
+  margin: 0 0 0.25rem;
+}
+
+h2 {
+  font-size: 1.15rem;
+  margin: 2rem 0 0.5rem;
+}
+
+p {
+  margin: 0.4rem 0;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.mono {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin: 0.75rem 0;
+}
+
+button,
+.button {
+  display: inline-block;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 1.1rem;
+  font: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+input[type="text"],
+input[type="file"] {
+  font: inherit;
+  padding: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+  width: 100%;
+}
+
+.error {
+  color: var(--warn);
+  white-space: pre-wrap;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.85rem;
+}
+
+.ok {
+  color: var(--ok);
+}
+
+code {
+  font-family: ui-monospace, Consolas, monospace;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.85em;
+}
+
+ol.steps {
+  padding-left: 1.2rem;
+}
+
+ol.steps li {
+  margin: 0.5rem 0;
+}
