@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "name": "Trailhead",
+    "idea": "A trail-finder that ranks hikes near a city by how much shade they get, so summer hikers stop getting cooked. Search a city, get three ranked suggestions with a shade score and why.",
+    "mode": "hackathon",
+    "hoursLeft": 18,
+    "knownStack": "TypeScript, Next.js, Supabase. Nobody has done map tiles before.",
+    "demoTarget": "Type 'Austin', see three trails ranked by shade score, click one, see the score explained on a map.",
+    "outOfScope": ["accounts", "payments", "mobile app", "user-submitted trails"],
+    "mustWork": [
+      "the ranking endpoint returns three trails for Austin in under 2s",
+      "the shade score explanation renders for at least one trail"
+    ]
+  },
+  "roles": [
+    {
+      "slug": "frontend",
+      "name": "Frontend",
+      "description": "Search box, ranked results list, and the trail detail page with the score explanation.",
+      "owns": ["app/page.tsx", "app/trail/[id]/page.tsx", "the results list component"],
+      "mustCover": [
+        "what the empty state and the loading state show",
+        "the exact shape frontend expects from the ranking endpoint",
+        "what renders when a trail has no shade data"
+      ]
+    },
+    {
+      "slug": "backend",
+      "name": "Backend",
+      "description": "The ranking endpoint, the trails data model, and seeding trail data for the demo city.",
+      "owns": ["app/api/rank/route.ts", "the trails table", "the seed script"],
+      "mustCover": [
+        "exact request and response shape of POST /api/rank",
+        "table and column names with types",
+        "what an error response looks like to the UI"
+      ]
+    },
+    {
+      "slug": "shade-model",
+      "name": "Shade model",
+      "description": "The scoring: how tree cover, aspect, and time of day become one 0-100 shade score, computed at seed time.",
+      "owns": ["the scoring function", "score explanations stored per trail"],
+      "mustCover": [
+        "the exact fields the score explanation exposes to the detail page",
+        "whether scores are precomputed at seed time or computed per request"
+      ]
+    }
+  ]
+}

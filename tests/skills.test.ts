@@ -4,6 +4,19 @@ import { join } from "node:path";
 import { parseGrillRoom } from "@/lib/schema";
 import { SPEC_HEADINGS } from "@/lib/spec-format";
 
+describe("examples", () => {
+  it("examples/grill-room.json validates against the real schema", () => {
+    const raw = readFileSync(
+      join(__dirname, "..", "examples", "grill-room.json"),
+      "utf8",
+    );
+    const result = parseGrillRoom(raw);
+    expect(result.ok, JSON.stringify(result)).toBe(true);
+    if (!result.ok) return;
+    expect(result.room.roles.length).toBe(3);
+  });
+});
+
 /**
  * Skills are prompts, so their behavior is exercised by running them — but
  * their *contracts* are testable: the JSON example a skill shows must
