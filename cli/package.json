@@ -1,12 +1,12 @@
 {
   "name": "grill-with-me",
-  "version": "0.1.0",
-  "description": "Join a grill-with-me room: fetch your role's pack into the current repo.",
+  "version": "0.2.0",
+  "description": "Join a grill-with-me room, or publish one: pack in, contract out.",
   "bin": {
-    "grill-with-me": "./join.mjs"
+    "grill-with-me": "./grill.mjs"
   },
   "type": "module",
-  "files": ["join.mjs"],
+  "files": ["grill.mjs"],
   "engines": {
     "node": ">=18"
   },
