@@ -2,7 +2,7 @@
 
 > Grill a whole team about their project — each member in their own CLI, with their own agent — then hold everyone to the contract that comes out of it.
 
-**Status: v1 built** (2026-08-17, branch `build/v1-skills-and-app`). All four skills, the web app, the join CLI, and the examples exist and are tested — 75 unit/contract tests plus an end-to-end smoke of publish → join page → CLI join → republish. Remaining before calling M-milestones done: the *behavioral* exit criteria that need live grill runs (M1's reliability gate, M5's false-positive gate) and deployment (Vercel + Supabase). Rewritten 2026-08-17 (architecture reversal, §5); revised with §5 decisions 13–19.
+**Status: v1 built, UX pass done** (2026-08-18, branch `build/v1-skills-and-app`). All four skills, the web app, the CLI, and the examples exist and are tested — 103 unit/contract/CLI tests, including an end-to-end spawn of the real CLI against a stub of the real API, plus a live smoke of publish → join → status → republish → re-join. Remaining before calling M-milestones done: the *behavioral* exit criteria that need live grill runs (M1's reliability gate, M5's false-positive gate) and deployment (Vercel + Supabase). Rewritten 2026-08-17 (architecture reversal, §5); revised with §5 decisions 13–19, then 20–23 (the UX pass).
 
 ---
 
@@ -195,29 +195,34 @@ Every finding offers **three outcomes**, not two: *the code is wrong* · *the co
 ### Joining
 
 ```
-npx grill-with-me join blue-tiger-42
+npx grill-with-me join blue-tiger-42        # or paste the whole room link
 ```
 
 Fetches the pack, writes the files, prints what to run next. **Members never open a browser.**
 
 This exists because "download a zip and unzip it into your repo root" was the single most likely point of failure in the whole product — it has a download step, an unzip step, a *where does this go* step, and a *did I unzip it in the right folder* step, each of which will bite someone. The CLI removes all four.
 
+It also takes the room *link*, not just the key — people paste what they were sent — and the link tells it which deployment to talk to, so nobody has to learn `--base`. If the member gives a name, the CLI records the claim, so the host's board reflects the path members actually take.
+
+The same binary carries the host: `host` installs the host-side skills, `publish` and `republish` move `grill-room.json`, `status` says who has claimed what (decision 22). One command name to remember, five verbs, no accounts.
+
 ### What lands in the repo
 
 ```
-AGENTS.md                                  # points the agent at everything below
+AGENTS.md                                  # a fenced block; the repo's own content is kept
 grill/
   PROJECT.md                               # shared: the brief from the host grill
   MY-ROLE.md                               # yours: scope, what you'll be asked about
-  .room                                    # room key + pack version (staleness check)
-.claude/skills/
-  check-contract/SKILL.md
-  amend-contract/SKILL.md
+  .room                                    # room key + role + pack version
+.claude/
+  commands/grill-my-role.md                # makes "run /grill-my-role" literally true
+  skills/check-contract/SKILL.md
+  skills/amend-contract/SKILL.md
 ```
 
-No member-grill skill — `MY-ROLE.md` carries it (decision 19). Check and amend ship in **every** pack, because anyone can run them (decision 17).
+No member-grill skill — `MY-ROLE.md` carries it (decision 19); the command file only *starts* it (decision 20). Check and amend ship in **every** pack, because anyone can run them (decision 17).
 
-`.room` stamps the room key and pack version so `check-contract` can warn when the host has republished and you're holding a stale pack.
+`.room` stamps the room key, the role, and the pack version: `check-contract` reads it to warn about a stale pack and to lead with your own role's findings, and the CLI reads it to know a re-join is an update of the same room rather than a stranger's pack landing on your files (decision 21).
 
 ### `AGENTS.md`
 
@@ -235,7 +240,7 @@ and import types from `grill/contract.ts`.
 - `grill/CONTRACT-CHANGES.md` overrides CONTRACT.md where they disagree.
 ```
 
-`AGENTS.md` rather than `CLAUDE.md` on purpose: cross-tool convention, so you never have to ask a teammate which agent they use.
+`AGENTS.md` rather than `CLAUDE.md` on purpose: cross-tool convention, so you never have to ask a teammate which agent they use. In the pack it is wrapped in `<!-- grill-with-me:start -->` / `:end` markers, because a real repo may already have one — the CLI replaces what is between the markers and leaves the rest alone (decision 21).
 
 ---
 
@@ -274,6 +279,10 @@ The first version of this plan put the grilling **in the web app**, with our API
 | 17 | **Anyone can run `check-contract` and `amend-contract`** — not just the host. | The host is heads-down at hour 18. A bottleneck on the only person who can verify or correct the contract is a bottleneck on the whole feature. |
 | 18 | **Packs are version-stamped** (`.room`). | Host republishes v2; a v1 holder currently has no way to know. |
 | 19 | **No member-grill skill.** Members run the existing `grill-me`; `MY-ROLE.md` supplies scope, instructions, and the output contract. | Don't rebuild what exists. A markdown file is portable across agents where a `.claude/skills/` file isn't, works for someone who's never heard of `grill-me`, and means members install nothing. Cost: the spec file isn't guaranteed to be well-formed — pushed onto `merge-contract` to validate (P0-2). |
+| 20 | **Every pack ships `/grill-my-role`** — a four-line command file that reads `MY-ROLE.md`. Deliberately not named `grill-me`. | The member's first instruction has to work whether or not they have the `grill-me` skill installed; naming it `grill-me` would shadow the skill decision 19 depends on. Costs one small file, removes the only step that assumed prior setup. |
+| 21 | **`AGENTS.md` is a fenced block the CLI merges; re-joining updates in place, guarded by `grill/.room`.** | Joining is the moment a stranger's tool writes into a repo people care about. Overwriting a team's own `AGENTS.md`, or demanding `--force` after every republish, are both ways to lose their trust at minute 0. The stamp is what tells the two cases apart. |
+| 22 | **The CLI covers the host too** — `host`, `publish`, `republish`, `status`. | "Copy `skills/grill-host/` into your agent" quietly required cloning this repo, and re-publishing was a curl with a bearer token shown once. Decision 5 is intact: the *skill* still never calls our API — a human runs a command, and the token is saved and gitignored rather than pasted. |
+| 23 | **Every command the app or CLI prints carries `--base` unless it is the canonical deployment.** | A copyable command that silently talks to the wrong deployment is worse than no command. Forks and dev servers are the normal case while building this. |
 
 ---
 
@@ -283,10 +292,12 @@ Deliberately dumb. If it starts growing a brain, something has gone wrong.
 
 | Route | Does |
 |---|---|
-| `/` | Upload `grill-room.json` → creates a room → returns link + host token |
-| `/r/[key]` | Project name + role list; claim a role; fallback zip download |
+| `/` | Drop (or paste) `grill-room.json` → room link, host token, host-view link — all copyable. Also a key box for members whose link died in a chat app |
+| `/r/[key]` | The brief, the roles with what each owns, claim a role, and the join command. Zip download stays as a fallback |
 | `/api/room/[key]` | **JSON the CLI reads** — role list and pack contents |
-| `/r/[key]/host` | Re-publish (bumps version), see who's claimed what |
+| `/api/skills/[bundle]` | Skill markdown for `npx grill-with-me host` (decision 22) |
+| `/r/[key]/host` | Who's claimed what, the share link, and the re-publish command |
+| `not-found` | Wrong or expired key → what a key looks like, and a box to try again |
 
 **Stack:**
 
@@ -441,3 +452,17 @@ Re-publish → v2. Claim tracking. 30-day TTL. Example room + example outputs in
 | **P2-4** | Usage analytics — do packs get downloaded *and run*? |
 | **P2-5** | LLM in the web app (deferred by decision 12) — e.g. merge without a local agent |
 | **P2-6** | Room templates / saved role sets for repeat teams |
+
+### Closed by the UX pass (2026-08-18)
+
+| ID | How |
+|---|---|
+| **P0-4** | `npx grill-with-me host` installs the host skills; the member pack ships `/grill-my-role`. Neither side has to find, copy, or clone anything (decisions 20, 22). |
+| **P0-2** (half) | `npx grill-with-me check-spec` applies the same heading rules `merge-contract` parses, on the member's machine, thirty seconds after the grill. It cannot *make* an agent write the headings — that stays open — but it moves discovery from hour 14 at the host to the moment it happens, where the person who can fix it is standing. |
+| **P1-6** | `examples/` now carries the room, the contract it leads to, **and** a check report — with tests asserting each keeps the shape its skill promises. |
+| — | **Production packs were broken and would have looked fine locally.** `lib/pack.ts` reads `skills/*` off disk and nothing imports those files, so Next's tracing left them out of the serverless bundle; every download would have 500'd on Vercel. Fixed with `outputFileTracingIncludes` in `next.config.mjs`. |
+| — | The host view printed a literal `{origin}` inside its curl command. It now prints commands built from the request's real origin, and carries `--base` off the canonical deployment (decision 23). |
+| — | Joining could overwrite a repo's own `AGENTS.md`, and every republish demanded `--force`. Both fixed by decision 21. |
+| — | CLI joiners never appeared on the host's claim board — the main path left the host's only visibility empty. The CLI now records the claim it already has a name for. |
+
+Still open: **P0-2**'s root cause (nothing *enforces* that the agent writes the five headings — `check-spec` and `merge-contract` only catch it), the behavioral gates that need live grill runs (**M1**'s reliability gate, **M5**'s false-positive gate), **P1-2**, **P1-7**, **P1-8**, and deployment.
