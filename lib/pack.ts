@@ -18,6 +18,23 @@ import { SPEC_HEADINGS, specPath } from "./spec-format";
 
 export type PackFile = { path: string; content: string };
 
+/**
+ * The slash command shipped in every pack. Deliberately NOT `grill-me`: a
+ * member who already has the stock `grill-me` skill installed must not have
+ * it shadowed by ours, and the printed first instruction has to work either
+ * way (decision 20).
+ */
+export const GRILL_COMMAND = "grill-my-role";
+
+/**
+ * AGENTS.md is the one pack file a member's repo may already own, so our
+ * section is fenced. The CLI replaces what is between these markers and
+ * leaves everything else alone (decision 21) — joining, or re-joining after
+ * a republish, can never eat a team's own agent instructions.
+ */
+export const AGENTS_BLOCK_START = "<!-- grill-with-me:start -->";
+export const AGENTS_BLOCK_END = "<!-- grill-with-me:end -->";
+
 const bullets = (items: string[], empty: string): string =>
   items.length ? items.map((s) => `- ${s}`).join("\n") : `- ${empty}`;
 
@@ -50,6 +67,10 @@ export function renderMyRoleMd(project: Project, role: Role): string {
   return `# Your role: ${role.name}
 
 ${role.description}
+
+> **Human reading this:** run \`/${GRILL_COMMAND}\` in your AI editor, or paste
+> to your agent: _"Read grill/MY-ROLE.md and follow it."_ Then just answer the
+> questions — about ten minutes. Everything below is addressed to the agent.
 
 ## What you own
 ${bullets(role.owns, "to be pinned down during the grill")}
@@ -98,7 +119,8 @@ belongs under "Still unclear".
 }
 
 export function renderAgentsMd(): string {
-  return `# Agent instructions
+  return `${AGENTS_BLOCK_START}
+# Agent instructions
 
 Before writing any code that crosses a role boundary, read
 \`grill/CONTRACT.md\` and — if it exists — import types from
@@ -114,12 +136,42 @@ Before writing any code that crosses a role boundary, read
   disagree.
 
 If \`grill/CONTRACT.md\` does not exist yet, the team is still in the
-grilling phase: follow \`grill/MY-ROLE.md\`.
+grilling phase: follow \`grill/MY-ROLE.md\` — the user starts it by running
+\`/${GRILL_COMMAND}\`.
+${AGENTS_BLOCK_END}
 `;
 }
 
-export function renderRoomStamp(roomKey: string, version: number): string {
-  return `${JSON.stringify({ roomKey, packVersion: version }, null, 2)}\n`;
+/**
+ * The slash command that makes "run /grill-my-role" literally true. It is
+ * four lines because it must not become a second grill prompt — MY-ROLE.md
+ * is the grill (decision 19); this only guarantees the member's very first
+ * instruction works without depending on which skills they happen to have.
+ */
+export function renderGrillCommand(role: Role): string {
+  return `---
+description: Grill me about my ${role.name} role and write my spec (grill-with-me).
+---
+
+Read \`grill/MY-ROLE.md\` in this repo and follow it exactly. First read
+\`grill/PROJECT.md\` and any \`grill/*-spec.md\` teammates have already
+committed, so your questions reference what exists. Then start the grill:
+one question at a time, each with your recommended answer.
+`;
+}
+
+/**
+ * `grill/.room` — what this checkout joined. `check-contract` reads it for
+ * staleness; the CLI reads it to know that a re-join updates the same room
+ * (and which role to default to) rather than being a fresh, riskier write.
+ */
+export function renderRoomStamp(
+  roomKey: string,
+  roleSlug: string,
+  version: number,
+): string {
+  const stamp = { roomKey, role: roleSlug, packVersion: version };
+  return `${JSON.stringify(stamp, null, 2)}\n`;
 }
 
 /**
@@ -127,19 +179,32 @@ export function renderRoomStamp(roomKey: string, version: number): string {
  * Read from the repo's skills/ directory at render time so the packs always
  * ship the current skill text; cached because packs render per download.
  */
-const BUNDLED_SKILLS = ["check-contract", "amend-contract"] as const;
+const MEMBER_SKILLS = ["check-contract", "amend-contract"] as const;
 
-let bundledSkillsCache: PackFile[] | null = null;
+const skillCache = new Map<string, PackFile>();
 
-function bundledSkillFiles(): PackFile[] {
-  if (!bundledSkillsCache) {
-    const skillsDir = join(process.cwd(), "skills");
-    bundledSkillsCache = BUNDLED_SKILLS.map((name) => ({
+/**
+ * Read skills off disk as pack files, cached (packs render per download).
+ * Also used by /api/skills so a host can install the host-side skills with
+ * one command instead of cloning this repo (decision 22).
+ *
+ * next.config.mjs traces skills/ into the serverless bundle — without that,
+ * every download 500s in production and works fine locally.
+ */
+export function skillFiles(names: readonly string[]): PackFile[] {
+  return names.map((name) => {
+    const cached = skillCache.get(name);
+    if (cached) return cached;
+    const file: PackFile = {
       path: `.claude/skills/${name}/SKILL.md`,
-      content: readFileSync(join(skillsDir, name, "SKILL.md"), "utf8"),
-    }));
-  }
-  return bundledSkillsCache;
+      content: readFileSync(
+        join(process.cwd(), "skills", name, "SKILL.md"),
+        "utf8",
+      ),
+    };
+    skillCache.set(name, file);
+    return file;
+  });
 }
 
 /**
@@ -160,7 +225,14 @@ export function renderPack(
     { path: "AGENTS.md", content: renderAgentsMd() },
     { path: "grill/PROJECT.md", content: renderProjectMd(room.project) },
     { path: "grill/MY-ROLE.md", content: renderMyRoleMd(room.project, role) },
-    { path: "grill/.room", content: renderRoomStamp(roomKey, version) },
-    ...bundledSkillFiles(),
+    {
+      path: "grill/.room",
+      content: renderRoomStamp(roomKey, role.slug, version),
+    },
+    {
+      path: `.claude/commands/${GRILL_COMMAND}.md`,
+      content: renderGrillCommand(role),
+    },
+    ...skillFiles(MEMBER_SKILLS),
   ];
 }
