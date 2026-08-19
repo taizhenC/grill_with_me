@@ -1,6 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { parseGrillRoom } from "@/lib/schema";
-import { renderPack, renderMyRoleMd, renderProjectMd } from "@/lib/pack";
+import {
+  renderPack,
+  renderMyRoleMd,
+  renderProjectMd,
+  renderAgentsMd,
+  AGENTS_BLOCK_START,
+  AGENTS_BLOCK_END,
+  GRILL_COMMAND,
+} from "@/lib/pack";
 import { SPEC_HEADINGS, validateSpec, specPath } from "@/lib/spec-format";
 
 function room() {
@@ -48,9 +56,20 @@ describe("renderPack", () => {
       "grill/PROJECT.md",
       "grill/MY-ROLE.md",
       "grill/.room",
+      `.claude/commands/${GRILL_COMMAND}.md`,
       ".claude/skills/check-contract/SKILL.md",
       ".claude/skills/amend-contract/SKILL.md",
     ]);
+  });
+
+  it("ships a slash command that makes the first instruction true (decision 20)", () => {
+    const files = renderPack(room(), "frontend", "blue-tiger-42", 1);
+    const command = files.find((f) => f.path.endsWith(`${GRILL_COMMAND}.md`))!;
+    expect(command.content).toMatch(/^---\ndescription: /);
+    expect(command.content).toContain("grill/MY-ROLE.md");
+    // Not `grill-me`: shadowing a member's installed skill would break the
+    // one thing decision 19 relies on.
+    expect(GRILL_COMMAND).not.toBe("grill-me");
   });
 
   it("bundles the real check/amend skills, not stubs (decision 17)", () => {
@@ -73,11 +92,30 @@ describe("renderPack", () => {
     );
   });
 
-  it("stamps the room key and pack version (decision 18)", () => {
+  it("stamps the room key, role, and pack version (decision 18)", () => {
     const files = renderPack(room(), "frontend", "blue-tiger-42", 3);
     const stamp = files.find((f) => f.path === "grill/.room")!;
     const parsed = JSON.parse(stamp.content);
-    expect(parsed).toEqual({ roomKey: "blue-tiger-42", packVersion: 3 });
+    expect(parsed).toEqual({
+      roomKey: "blue-tiger-42",
+      role: "frontend",
+      packVersion: 3,
+    });
+  });
+});
+
+describe("AGENTS.md", () => {
+  it("is fenced so the CLI can merge it into a repo that has one (decision 21)", () => {
+    const md = renderAgentsMd();
+    expect(md.startsWith(AGENTS_BLOCK_START)).toBe(true);
+    expect(md.trimEnd().endsWith(AGENTS_BLOCK_END)).toBe(true);
+  });
+
+  it("points a cold agent at the contract, then at the role", () => {
+    const md = renderAgentsMd();
+    expect(md).toContain("grill/CONTRACT.md");
+    expect(md).toContain("NEVER invent a field name");
+    expect(md).toContain(`/${GRILL_COMMAND}`);
   });
 });
 

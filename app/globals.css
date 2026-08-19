@@ -6,6 +6,7 @@
   --accent: #b4552d;
   --accent-ink: #ffffff;
   --card: #ffffff;
+  --sunk: #f3eee5;
   --ok: #2d6a4f;
   --warn: #9a3412;
 }
@@ -19,6 +20,7 @@
     --accent: #d9714a;
     --accent-ink: #191713;
     --card: #211e1a;
+    --sunk: #16140f;
     --ok: #74c69d;
     --warn: #fdba74;
   }
@@ -42,22 +44,42 @@ main {
   padding: 3rem 1.25rem 5rem;
 }
 
+@media (max-width: 30rem) {
+  main {
+    padding: 2rem 1rem 3rem;
+  }
+}
+
 h1 {
   font-size: 2rem;
+  line-height: 1.2;
   margin: 0 0 0.25rem;
 }
 
 h2 {
   font-size: 1.15rem;
-  margin: 2rem 0 0.5rem;
+  margin: 2.25rem 0 0.5rem;
 }
 
 p {
   margin: 0.4rem 0;
 }
 
+a {
+  color: var(--accent);
+}
+
+.lede {
+  font-size: 1.05rem;
+  margin-bottom: 0.75rem;
+}
+
 .muted {
   color: var(--muted);
+}
+
+.small {
+  font-size: 0.88rem;
 }
 
 .mono {
@@ -72,6 +94,12 @@ p {
   padding: 1rem 1.25rem;
   margin: 0.75rem 0;
 }
+
+.card.brief p:first-child {
+  margin-top: 0;
+}
+
+/* ---------- buttons ---------- */
 
 button,
 .button {
@@ -98,8 +126,16 @@ button.secondary {
   border: 1px solid var(--line);
 }
 
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- inputs ---------- */
+
 input[type="text"],
-input[type="file"] {
+input[type="file"],
+textarea {
   font: inherit;
   padding: 0.5rem;
   border: 1px solid var(--line);
@@ -108,6 +144,167 @@ input[type="file"] {
   color: var(--ink);
   width: 100%;
 }
+
+textarea {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.85rem;
+  margin: 0.5rem 0;
+  resize: vertical;
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.5rem 0;
+}
+
+.row button {
+  flex: none;
+  white-space: nowrap;
+}
+
+.row.tight {
+  margin: 0.75rem 0 0.25rem;
+}
+
+/* ---------- copyable command lines ---------- */
+
+.cmd {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  background: var(--sunk);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.4rem 0.4rem 0.4rem 0.7rem;
+  margin: 0.5rem 0;
+}
+
+.cmd code {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  background: none;
+  border: none;
+  padding: 0;
+  align-self: center;
+  font-size: 0.85rem;
+}
+
+button.copy {
+  flex: none;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+button.copy:hover {
+  color: var(--ink);
+  border-color: var(--muted);
+}
+
+/* ---------- publish dropzone ---------- */
+
+.drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  text-align: center;
+  padding: 2rem 1.25rem;
+  margin: 0.75rem 0;
+  background: var(--card);
+  border: 2px dashed var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.drop:hover,
+.drop:focus-within {
+  border-color: var(--accent);
+}
+
+.drop.dragging {
+  border-color: var(--accent);
+  background: var(--sunk);
+}
+
+.drop.busy {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+details.paste {
+  margin: 0.75rem 0;
+}
+
+summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.88rem;
+  margin: 0.5rem 0;
+}
+
+summary:hover {
+  color: var(--ink);
+}
+
+/* ---------- roles ---------- */
+
+.role-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0;
+}
+
+.card.role.open {
+  border-color: var(--accent);
+}
+
+.picked {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.5rem;
+}
+
+.badge {
+  display: inline-block;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  background: var(--sunk);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+}
+
+.badge.ok-badge {
+  color: var(--ok);
+  border-color: currentColor;
+}
+
+/* ---------- misc ---------- */
 
 .error {
   color: var(--warn);
@@ -129,10 +326,24 @@ code {
   font-size: 0.85em;
 }
 
+pre {
+  background: var(--sunk);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.75rem;
+  overflow-x: auto;
+}
+
 ol.steps {
   padding-left: 1.2rem;
 }
 
 ol.steps li {
-  margin: 0.5rem 0;
+  margin: 0.6rem 0;
+}
+
+.foot {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
 }

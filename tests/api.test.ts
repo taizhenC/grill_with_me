@@ -6,6 +6,7 @@ import { POST as createRoom } from "@/app/api/rooms/route";
 import { GET as getRoom } from "@/app/api/room/[key]/route";
 import { POST as claimRole } from "@/app/api/room/[key]/claim/route";
 import { POST as republish } from "@/app/api/room/[key]/republish/route";
+import { GET as getSkills } from "@/app/api/skills/[bundle]/route";
 
 const roomJson = (name = "Trailhead") =>
   JSON.stringify({
@@ -128,6 +129,36 @@ describe("GET /api/room/[key]", () => {
       params(key),
     );
     expect(res.status).toBe(404);
+  });
+});
+
+describe("GET /api/skills/[bundle]", () => {
+  const bundleParams = (bundle: string) => ({
+    params: Promise.resolve({ bundle }),
+  });
+
+  it("serves the host skills so a host never has to clone this repo", async () => {
+    const res = await getSkills(
+      new Request("http://test/api/skills/host"),
+      bundleParams("host"),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const paths = body.files.map((f: { path: string }) => f.path);
+    expect(paths).toEqual([
+      ".claude/skills/grill-host/SKILL.md",
+      ".claude/skills/merge-contract/SKILL.md",
+    ]);
+    expect(body.files[0].content).toContain("name: grill-host");
+  });
+
+  it("404s an unknown bundle and names the real ones", async () => {
+    const res = await getSkills(
+      new Request("http://test/api/skills/everything"),
+      bundleParams("everything"),
+    );
+    expect(res.status).toBe(404);
+    expect((await res.json()).error).toContain("host");
   });
 });
 

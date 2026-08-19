@@ -5,15 +5,36 @@ import { parseGrillRoom } from "@/lib/schema";
 import { SPEC_HEADINGS } from "@/lib/spec-format";
 
 describe("examples", () => {
+  const example = (name: string) =>
+    readFileSync(join(__dirname, "..", "examples", name), "utf8");
+
   it("examples/grill-room.json validates against the real schema", () => {
-    const raw = readFileSync(
-      join(__dirname, "..", "examples", "grill-room.json"),
-      "utf8",
-    );
-    const result = parseGrillRoom(raw);
+    const result = parseGrillRoom(example("grill-room.json"));
     expect(result.ok, JSON.stringify(result)).toBe(true);
     if (!result.ok) return;
     expect(result.room.roles.length).toBe(3);
+  });
+
+  /**
+   * Nobody commits a team to this without seeing the output first (P1-6), so
+   * the examples are the pitch. They have to keep showing what the skills
+   * actually produce.
+   */
+  it("the example check report shows what check-contract promises", () => {
+    const report = example("CHECK-REPORT.example.md");
+    expect(report).toContain("Outcome: [ ] fix the code");
+    expect(report).toContain("contract is wrong → run amend-contract");
+    expect(report).toContain("accepted, ignore");
+    expect(report).toContain("**NEW**");
+    expect(report).toMatch(/`[\w./[\]-]+:\d+`/); // every finding cites file:line
+    expect(report).toContain("✅");
+  });
+
+  it("the example contract names concrete shapes, not descriptions", () => {
+    const contract = example("CONTRACT.example.md");
+    expect(contract).toContain("## Endpoints");
+    expect(contract).toContain("owner: **Backend**");
+    expect(contract).toContain("shadeScore: number");
   });
 });
 
