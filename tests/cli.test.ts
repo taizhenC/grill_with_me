@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { createServer, type Server } from "node:http";
 import { execFile } from "node:child_process";
-import { mkdtemp, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { link, mkdtemp, mkdir, readFile, readdir, symlink, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,7 +11,7 @@ import { renderPack, skillFiles, AGENTS_BLOCK_START, type PackFile } from "@/lib
 import { SPEC_HEADINGS } from "@/lib/spec-format";
 
 const execFileAsync = promisify(execFile);
-const CLI = join(__dirname, "..", "cli", "grill.mjs");
+const CLI = process.env.GRILL_CLI_TEST_BIN ?? join(__dirname, "..", "cli", "grill.mjs");
 
 /**
  * The CLI is the member's entire experience and the host's fallback, and it
@@ -221,6 +221,125 @@ describe("downloaded pack validation", () => {
       expect(await readdir(dir)).toEqual([]);
     },
   );
+});
+
+describe("pack filesystem safety", () => {
+  it.each(["join", "host"])(
+    "%s rejects a late directory link before changing earlier files, even with --force",
+    async (command) => {
+      const dir = await repo();
+      const outside = await repo();
+      await writeFile(join(outside, "SKILL.md"), "outside sentinel\n");
+      await mkdir(join(dir, ".claude/skills"), { recursive: true });
+      const linkedSkill = command === "join" ? "amend-contract" : "merge-contract";
+      await symlink(outside, join(dir, ".claude/skills", linkedSkill), process.platform === "win32" ? "junction" : "dir");
+      await writeFile(join(dir, "AGENTS.md"), "house rules\n");
+      const args = command === "join" ? ["join", ROOM_KEY, "--role", "backend", "--name", "Alice"] : ["host"];
+
+      const result = await run([...args, "--base", base, "--force"], dir);
+
+      expect(result.code).toBe(1);
+      expect(result.stderr).toMatch(/link/i);
+      expect(await read(outside, "SKILL.md")).toBe("outside sentinel\n");
+      expect(await read(dir, "AGENTS.md")).toBe("house rules\n");
+      expect(await readdir(dir)).toEqual([".claude", "AGENTS.md"]);
+      expect(await readdir(join(dir, ".claude/skills"))).toEqual([linkedSkill]);
+      expect(claims).toEqual({});
+    },
+  );
+
+  it.each(["join", "host"])("%s rejects a hard-linked target without altering its other name", async (command) => {
+    const dir = await repo();
+    const outside = await repo();
+    await writeFile(join(outside, "sentinel.md"), "outside sentinel\n");
+    const path = command === "join" ? "AGENTS.md" : ".claude/skills/merge-contract/SKILL.md";
+    if (command === "host") await mkdir(join(dir, ".claude/skills/merge-contract"), { recursive: true });
+    await link(join(outside, "sentinel.md"), join(dir, path));
+    const args = command === "join" ? ["join", ROOM_KEY, "--role", "backend"] : ["host"];
+
+    const result = await run([...args, "--base", base, "--force"], dir);
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("hard-linked");
+    expect(await read(outside, "sentinel.md")).toBe("outside sentinel\n");
+    await expect(read(dir, command === "join" ? "grill/.room" : ".claude/skills/grill-host/SKILL.md")).rejects.toThrow();
+  });
+
+  it.each(["directory leaf", "file ancestor"])("rejects a late %s before updating AGENTS.md", async (problem) => {
+    const dir = await repo();
+    await writeFile(join(dir, "AGENTS.md"), "house rules\n");
+    await mkdir(join(dir, ".claude/skills"), { recursive: true });
+    if (problem === "directory leaf") {
+      await mkdir(join(dir, ".claude/skills/amend-contract/SKILL.md"), { recursive: true });
+    } else {
+      await writeFile(join(dir, ".claude/skills/amend-contract"), "keep this\n");
+    }
+
+    const result = await run(["join", ROOM_KEY, "--role", "backend", "--base", base, "--force"], dir);
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("unsafe pack target");
+    expect(await read(dir, "AGENTS.md")).toBe("house rules\n");
+    await expect(read(dir, "grill/.room")).rejects.toThrow();
+    expect(await readdir(join(dir, ".claude/skills"))).toEqual(["amend-contract"]);
+  });
+
+  it("rejects a linked stamp ancestor even in dry-run", async () => {
+    const dir = await repo();
+    const outside = await repo();
+    await writeFile(join(outside, ".room"), JSON.stringify({ roomKey: ROOM_KEY, role: "backend" }));
+    await symlink(outside, join(dir, "grill"), process.platform === "win32" ? "junction" : "dir");
+
+    const result = await run(["join", ROOM_KEY, "--base", base, "--dry-run", "--force"], dir);
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(/link/i);
+    expect(await readdir(dir)).toEqual(["grill"]);
+    expect(await readdir(outside)).toEqual([".room"]);
+  });
+
+  it.skipIf(process.platform === "win32").each(["AGENTS.md", "grill/.room", ".claude/skills/amend-contract/SKILL.md"])(
+    "rejects a file symlink at %s without touching its target",
+    async (path) => {
+      const dir = await repo();
+      const outside = await repo();
+      const target = join(outside, "sentinel.md");
+      await writeFile(target, "outside sentinel\n");
+      await mkdir(join(dir, "grill"), { recursive: true });
+      await mkdir(join(dir, ".claude/skills/amend-contract"), { recursive: true });
+      await symlink(target, join(dir, path), "file");
+
+      const result = await run(["join", ROOM_KEY, "--role", "backend", "--base", base, "--force"], dir);
+
+      expect(result.code).toBe(1);
+      expect(result.stderr).toMatch(/link/i);
+      expect(await read(outside, "sentinel.md")).toBe("outside sentinel\n");
+      await expect(read(dir, "grill/PROJECT.md")).rejects.toThrow();
+    },
+  );
+
+  it.skipIf(process.platform === "win32")("rejects a dangling file symlink without creating its target", async () => {
+    const dir = await repo();
+    const outside = await repo();
+    await symlink(join(outside, "missing.md"), join(dir, "AGENTS.md"), "file");
+    const result = await run(["join", ROOM_KEY, "--role", "backend", "--base", base, "--force"], dir);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(/link/i);
+    expect(await readdir(outside)).toEqual([]);
+    expect(await readdir(dir)).toEqual(["AGENTS.md"]);
+  });
+
+  it("allows a checkout opened through a directory link", async () => {
+    const dir = await repo();
+    const links = await repo();
+    const alias = join(links, "checkout");
+    await symlink(dir, alias, process.platform === "win32" ? "junction" : "dir");
+
+    const result = await run(["join", ROOM_KEY, "--role", "backend", "--base", base], alias);
+
+    expect(result.code).toBe(0);
+    expect(await read(dir, "grill/MY-ROLE.md")).toContain("# Your role: Backend");
+  });
 });
 
 describe("join", () => {
@@ -438,6 +557,15 @@ describe("status", () => {
 });
 
 describe("host", () => {
+  it("previews the complete host installation without writing in dry-run", async () => {
+    const dir = await repo();
+    const result = await run(["host", "--base", base, "--dry-run", "--force"], dir);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain("Dry run");
+    expect(result.stdout).toContain(".claude/skills/merge-contract/SKILL.md");
+    expect(await readdir(dir)).toEqual([]);
+  });
+
   it("installs the host skills without cloning this repo", async () => {
     const dir = await repo();
     const { code, stdout } = await run(["host", "--base", base], dir);

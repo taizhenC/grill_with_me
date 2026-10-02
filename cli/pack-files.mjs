@@ -1,3 +1,6 @@
+import { lstat, readFile } from "node:fs/promises";
+import { join } from "node:path";
+
 /** Downloaded packs can replace only these versioned product files. */
 const PACK_PATHS = {
   member: [
@@ -54,4 +57,48 @@ export function validatePack(pack, kind) {
   });
   // Exact count, unique paths, and membership together guarantee completeness.
   return files;
+}
+
+/**
+ * root is the caller's canonical cwd; paths are already allowlisted (or the
+ * fixed local room stamp). Never follow links inside that root, even when
+ * they point back into it. Check every target before any installation writes.
+ * This is a preflight, not protection against another process replacing paths
+ * concurrently or a guarantee of rollback after an I/O failure.
+ */
+export async function preflightTargets(root, paths) {
+  for (const path of paths) {
+    const parts = path.split("/");
+    let target = root;
+    for (const [i, part] of parts.entries()) {
+      target = join(target, part);
+      let stat;
+      try {
+        stat = await lstat(target);
+      } catch (err) {
+        if (err.code === "ENOENT") break;
+        throw err;
+      }
+      if (stat.isSymbolicLink()) {
+        throw new Error(`unsafe pack target ${path}: symbolic links and junctions are not allowed`);
+      }
+      const leaf = i === parts.length - 1;
+      if (leaf ? !stat.isFile() : !stat.isDirectory()) {
+        throw new Error(`unsafe pack target ${path}: expected ${leaf ? "a regular file" : "directory ancestors"}`);
+      }
+      if (leaf && stat.nlink > 1) {
+        throw new Error(`unsafe pack target ${path}: hard-linked files are not allowed`);
+      }
+    }
+  }
+}
+
+/** Only absent pack files are new; unreadable files must abort the whole plan. */
+export async function readPackFile(path) {
+  try {
+    return await readFile(path, "utf8");
+  } catch (err) {
+    if (err.code === "ENOENT") return null;
+    throw err;
+  }
 }
