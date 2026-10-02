@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { parseGrillRoom, MAX_ROOM_JSON_BYTES } from "@/lib/schema";
 import { getStore } from "@/lib/store";
 import { storageUnavailable } from "@/lib/store-response";
-import { allowCreate, clientIp } from "@/lib/rate-limit";
+import { enforceRequestLimit } from "@/lib/rate-limit";
 import { readRequestText } from "@/lib/request-body";
 
 /**
@@ -14,12 +14,8 @@ import { readRequestText } from "@/lib/request-body";
  * paths, never half-created (plan §6 exit criteria).
  */
 export async function POST(request: Request) {
-  if (!allowCreate(clientIp(request))) {
-    return NextResponse.json(
-      { errors: ["too many rooms created from this address; try later"] },
-      { status: 429 },
-    );
-  }
+  const limited = await enforceRequestLimit(request, "create");
+  if (limited) return limited;
 
   const body = await readRequestText(request, MAX_ROOM_JSON_BYTES);
   if (!body.ok) return body.response;

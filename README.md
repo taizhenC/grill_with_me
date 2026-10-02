@@ -242,3 +242,37 @@ the last committed content wins. Removing a role also removes its claim.
 Apply migration `0002_atomic_room_mutations.sql` before deploying this server
 version. Vanilla PostgreSQL checks do not replace a deployment smoke test
 against the configured Supabase project's API and service credentials.
+
+Room APIs, skill downloads, and join/host pages share durable request budgets.
+Limits use fixed, aligned one-hour windows:
+
+| Operation | Per client IP | Global per deployment database |
+|---|---:|---:|
+| Create | 20 | 500 |
+| Read / download / room page | 1,000 | 10,000 |
+| Claim | 120 | 1,000 |
+| Republish | 60 | 500 |
+
+Vercel supplies sanitized client-IP forwarding headers, so `VERCEL=1` enables
+per-IP budgeting there. On other hosts, requests share one conservative
+unknown-client bucket unless `GRILL_TRUST_PROXY=1` is explicitly enabled for
+an ingress that **overwrites incoming `X-Forwarded-For`**. Arbitrary caller
+forwarding headers are ignored. Only service-key-HMAC client identifiers are
+stored in quota rows; raw IPs and room tokens are absent.
+[Vercel request headers](https://vercel.com/docs/headers/request-headers#x-forwarded-for)
+
+Exhausted budgets return HTTP 429 with `Retry-After`; unavailable quota storage
+returns 503 instead of falling back to instance-local limits. Denied budgets
+do not charge the other counter, and global exhaustion creates no new client
+rows. This is a fixed-window limiter: a burst immediately before and after a
+window boundary can consume both windows' budgets. Shared networks use one
+IP budget. Counters older than their expired window plus one hour are removed
+in batches of 128 on subsequent traffic for that operation; without traffic,
+expired rows remain until the operation is used again.
+
+Run `npm run test:runtime` after `npm run build` to verify the actual compiled
+API and page proxy responses, including 429, cross-bundle backend 503, host
+token 403, expired/missing room 404, and invalid production storage 503. These
+checks use controlled HTTP RPC responses; `npm run test:db` separately proves
+real PostgreSQL quota concurrency and persistence across an application restart.
+Apply migration `0003_shared_request_quotas.sql` before deploying this version.
