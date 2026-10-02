@@ -50,9 +50,12 @@ try {
   ));
   assert.equal(packed.length, 1, "npm pack must produce one CLI archive");
   const archive = packed[0];
-  for (const path of ["package.json", "grill.mjs", "pack-files.mjs", "pack-install.mjs", "room-key.mjs", "host-credentials.mjs"]) {
+  for (const path of ["package.json", "README.md", "LICENSE", ...metadata.files]) {
     assert.ok(archive.files.some((file) => file.path === path), `Archive is missing ${path}`);
   }
+  assert.ok(!archive.files.some((file) =>
+    /(^|\/)(?:\.env[^/]*|\.grill-with-me(?:-host)?\.json[^/]*|\.room(?:\.grill-tmp)?|node_modules)(?:\/|$)/.test(file.path),
+  ), "Archive must not contain local credentials, room receipts, or installed dependencies");
 
   const consumer = join(workspace, "consumer with spaces");
   await mkdir(consumer);
@@ -61,6 +64,8 @@ try {
     "install", "--offline", "--ignore-scripts", "--no-audit", "--no-fund",
     "--package-lock=false", join(workspace, archive.filename),
   ], consumer);
+  assert.ok((await readFile(join(consumer, "node_modules/grill-with-me/LICENSE"), "utf8")).includes("MIT License"));
+  assert.ok((await readFile(join(consumer, "node_modules/grill-with-me/README.md"), "utf8")).includes("--base"));
 
   const command = ["exec", "--offline", "--no", "--", "grill-with-me"];
   assert.equal(runNpm([...command, "--version"], consumer), metadata.version);

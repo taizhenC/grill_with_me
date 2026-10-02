@@ -1,16 +1,17 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { GrillRoom } from "./schema";
 import { generateRoomKey, generateHostToken } from "./keys";
+import { storeConfig } from "./store-config";
 
 /**
  * Persistence for rooms. Two implementations behind one interface:
  *
  * - SupabaseStore — production. All access goes through the service key on
  *   the server (decision: no client-side DB, no RLS to fight in v1).
- * - MemoryStore — tests and credential-less local dev. Same semantics.
+ * - MemoryStore — explicitly selected development/tests. Same semantics.
  *
- * Chosen once at startup: Supabase when SUPABASE_URL + SUPABASE_SERVICE_KEY
- * are set, memory otherwise.
+ * Selected lazily on first use. Supabase is required by default; local
+ * memory needs GRILL_STORE=memory and NODE_ENV=development or test.
  */
 
 export const ROOM_TTL_DAYS = 30;
@@ -52,7 +53,7 @@ function expiry(): string {
 }
 
 function isExpired(stored: StoredRoom): boolean {
-  return new Date(stored.expiresAt).getTime() < Date.now();
+  return new Date(stored.expiresAt).getTime() <= Date.now();
 }
 
 /* ------------------------------------------------------------------ */
@@ -90,7 +91,12 @@ export class MemoryStore implements RoomStore {
     const stored = this.rooms.get(key);
     if (!stored || isExpired(stored)) throw new NotFoundError(key);
     if (stored.hostToken !== hostToken) throw new ForbiddenError();
-    stored.room = room;
+    stored.room = structuredClone(room);
+    stored.claims = Object.fromEntries(
+      Object.entries(stored.claims).filter(([slug]) =>
+        room.roles.some((role) => role.slug === slug),
+      ),
+    );
     stored.version += 1;
     return stored.version;
   }
@@ -167,30 +173,27 @@ export class SupabaseStore implements RoomStore {
   }
 
   async republish(key: string, hostToken: string, room: GrillRoom) {
-    const stored = await this.get(key);
-    if (!stored) throw new NotFoundError(key);
-    if (stored.hostToken !== hostToken) throw new ForbiddenError();
-    const next = stored.version + 1;
-    const { error } = await this.db
-      .from("rooms")
-      .update({ room, version: next })
-      .eq("key", key)
-      .eq("version", stored.version); // optimistic: concurrent republish loses
+    const { data, error } = await this.db.rpc("republish_room", {
+      p_key: key,
+      p_host_token: hostToken,
+      p_room: room,
+    });
+    if (error?.code === "PT404") throw new NotFoundError(key);
+    if (error?.code === "PT403") throw new ForbiddenError();
     if (error) throw new Error(`republish failed: ${error.message}`);
-    return next;
+    if (typeof data !== "number" || !Number.isInteger(data) || data < 2) {
+      throw new Error("republish failed: database did not return a committed version");
+    }
+    return data;
   }
 
   async claim(key: string, roleSlug: string, displayName: string) {
-    const stored = await this.get(key);
-    if (!stored) throw new NotFoundError(key);
-    if (!stored.room.roles.some((r) => r.slug === roleSlug)) {
-      throw new NotFoundError(`role ${roleSlug}`);
-    }
-    const claims = { ...stored.claims, [roleSlug]: displayName };
-    const { error } = await this.db
-      .from("rooms")
-      .update({ claims })
-      .eq("key", key);
+    const { error } = await this.db.rpc("claim_room", {
+      p_key: key,
+      p_role_slug: roleSlug,
+      p_display_name: displayName,
+    });
+    if (error?.code === "PT404") throw new NotFoundError(`room or role ${roleSlug}`);
     if (error) throw new Error(`claim failed: ${error.message}`);
   }
 }
@@ -212,12 +215,11 @@ type GlobalWithStore = { [GLOBAL_KEY]?: RoomStore };
 export function getStore(): RoomStore {
   const g = globalThis as GlobalWithStore;
   if (g[GLOBAL_KEY]) return g[GLOBAL_KEY];
-  const url = process.env.SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+  const config = storeConfig(process.env);
   g[GLOBAL_KEY] =
-    url && serviceKey
+    config.mode === "supabase"
       ? new SupabaseStore(
-          createClient(url, serviceKey, { auth: { persistSession: false } }),
+          createClient(config.url, config.serviceKey, { auth: { persistSession: false } }),
         )
       : new MemoryStore();
   return g[GLOBAL_KEY];

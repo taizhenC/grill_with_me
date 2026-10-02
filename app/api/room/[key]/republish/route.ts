@@ -3,6 +3,7 @@ import { parseGrillRoom, MAX_ROOM_JSON_BYTES } from "@/lib/schema";
 import { getStore, NotFoundError, ForbiddenError } from "@/lib/store";
 import { readRequestText } from "@/lib/request-body";
 import { isRoomKey } from "@/lib/keys";
+import { storageUnavailable } from "@/lib/store-response";
 
 /**
  * POST /api/room/[key]/republish — host swaps the room content, version bumps.
@@ -37,6 +38,8 @@ export async function POST(
     const version = await getStore().republish(key, token, parsed.room);
     return NextResponse.json({ key, version });
   } catch (err) {
+    const unavailable = storageUnavailable(err);
+    if (unavailable) return unavailable;
     if (err instanceof NotFoundError) {
       return NextResponse.json({ error: "room not found" }, { status: 404 });
     }

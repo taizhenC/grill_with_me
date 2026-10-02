@@ -43,10 +43,15 @@ separate actions.
    installer module, join/host integration, package inclusion, and 39 real CLI
    subprocess cases. The initial edited-file regression failed against the old
    implementation before the fix.
-2. **Document pack recovery and verify every CLI suite in CI**: README migration
+2. `b8f9fab` — **Document pack recovery and verify every CLI suite in CI**: README migration
    and recovery guidance, this completion record, explicit archive helper checks,
    and the `tests/cli` filter for all current and future CLI suites in the
    Windows/Linux and Node 22/24 matrix.
+3. **Merge beta package and persistence updates into CLI refresh**: incorporate
+   `main` at `733c6a9`, retain beta metadata and database CI, and resolve the archive
+   verification overlap using every declared helper plus README/LICENSE. Extend
+   receipt exclusions to the local host receipt and add recovery guidance to
+   the newly introduced package README.
 
 All feature commits use `taizhenC <tzhcheung@gmail.com>` as both author and
 committer, with detailed bodies and no co-author trailers.
@@ -56,7 +61,8 @@ committer, with detailed bodies and no co-author trailers.
 Local environment: Windows, Node **v22.15.0**.
 
 - `npm ci --no-audit --no-fund` — passed from the branch lockfile.
-- `npm test` — **273 passed, 8 skipped**, 13 test files. The eight skips are
+- `npm test` after incorporating current main — **299 passed, 8 skipped**, 15
+  test files. The eight skips are
   Unix-only cases on Windows. The new refresh suite has 39 cases, including
   actual Windows readonly-file rename failures, a final receipt-write failure,
   preserved sentinel content, safe identical retry, and refusal of changed
@@ -64,7 +70,7 @@ Local environment: Windows, Node **v22.15.0**.
 - `npm run typecheck` — passed.
 - `node scripts/verify-cli-package.mjs` — passed: archive contents, installed
   command/version/help, and valid/invalid spec checks.
-- A freshly packed CLI was installed offline into a separate consumer directory
+- A freshly packed **0.3.0-beta.1** CLI was installed offline into a separate consumer directory
   containing spaces. With `GRILL_CLI_TEST_BIN` pointing to that installed package,
   `vitest run tests/cli` passed **140 tests, 8 skipped**, across all three CLI
   suites. This exercises actual member/host installation and refresh against
