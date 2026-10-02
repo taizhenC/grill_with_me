@@ -657,7 +657,7 @@ describe("check-spec", () => {
     await mkdir(join(dir, "grill"), { recursive: true });
     await writeFile(
       join(dir, "grill", "backend-spec.md"),
-      SPEC_HEADINGS.join("\n\n") + "\n",
+      SPEC_HEADINGS.join("\n\n") + "\nSome pending decisions.\n",
       "utf8",
     );
     const { code, stdout } = await run(["check-spec"], dir);
@@ -672,16 +672,9 @@ describe("check-spec", () => {
     expect(stderr).toContain("grill-my-role");
   });
 
-  /**
-   * The CLI ships separately from the app, so it carries its own copy of the
-   * headings. If lib/spec-format.ts moves and this doesn't, members get told
-   * a spec is fine that merge-contract will reject.
-   */
-  it("checks the same headings merge-contract parses", () => {
+  it("uses the shared executable spec validator", () => {
     const cli = readFileSync(join(__dirname, "..", "cli", "grill.mjs"), "utf8");
-    for (const heading of SPEC_HEADINGS) {
-      expect(cli).toContain(`"${heading}"`);
-    }
+    expect(cli).toContain('import { validateSpec } from "./spec-format.mjs"');
   });
 });
 
