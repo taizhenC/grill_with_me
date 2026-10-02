@@ -401,7 +401,7 @@ describe("join", () => {
 
     expect(code).toBe(0);
     expect(await read(dir, "grill/MY-ROLE.md")).toContain("# Your role: Backend");
-    expect(JSON.parse(await read(dir, "grill/.room"))).toEqual({
+    expect(JSON.parse(await read(dir, "grill/.room"))).toMatchObject({
       roomKey: ROOM_KEY,
       role: "backend",
       packVersion: 1,

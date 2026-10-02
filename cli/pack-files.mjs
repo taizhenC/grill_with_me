@@ -21,6 +21,8 @@ const PACK_PATHS = {
 const MAX_FILE_BYTES = 256 * 1024;
 const MAX_PACK_BYTES = 1024 * 1024;
 
+export const packPaths = (kind) => [...PACK_PATHS[kind]];
+
 /** Validate the complete manifest before the caller reads or writes targets. */
 export function validatePack(pack, kind) {
   const expected = PACK_PATHS[kind];
@@ -96,7 +98,12 @@ export async function preflightTargets(root, paths) {
 /** Only absent pack files are new; unreadable files must abort the whole plan. */
 export async function readPackFile(path) {
   try {
-    return await readFile(path, "utf8");
+    const bytes = await readFile(path);
+    const content = bytes.toString("utf8");
+    if (!Buffer.from(content, "utf8").equals(bytes)) {
+      throw new Error(`invalid UTF-8 in local pack file ${path}; inspect its encoding before retrying`);
+    }
+    return content;
   } catch (err) {
     if (err.code === "ENOENT") return null;
     throw err;
