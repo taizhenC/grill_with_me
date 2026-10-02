@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { ROOM_KEY_PATTERN } from "@/lib/keys";
 import { MemoryStore, setStore, getStore } from "@/lib/store";
-import { resetRateLimit } from "@/lib/rate-limit";
+import { resetRateLimit, REQUEST_LIMITS } from "@/lib/rate-limit";
 import { ROOM_SCHEMA_VERSION } from "@/lib/schema";
 import { POST as createRoom } from "@/app/api/rooms/route";
 import { GET as getRoom } from "@/app/api/room/[key]/route";
@@ -97,7 +97,7 @@ describe("POST /api/rooms", () => {
 
   it("rate limits repeated creates from one address (P1-1)", async () => {
     let last = 0;
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < REQUEST_LIMITS.create.client + 2; i++) {
       const res = await createRoom(
         post("http://test/api/rooms", roomJson(), {
           "x-forwarded-for": "9.9.9.9",

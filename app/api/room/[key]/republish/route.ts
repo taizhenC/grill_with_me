@@ -3,6 +3,7 @@ import { parseGrillRoom, MAX_ROOM_JSON_BYTES } from "@/lib/schema";
 import { getStore, NotFoundError, ForbiddenError } from "@/lib/store";
 import { readRequestText } from "@/lib/request-body";
 import { isRoomKey } from "@/lib/keys";
+import { enforceRequestLimit } from "@/lib/rate-limit";
 import { storageUnavailable } from "@/lib/store-response";
 
 /**
@@ -15,6 +16,8 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ key: string }> },
 ) {
+  const limited = await enforceRequestLimit(request, "republish");
+  if (limited) return limited;
   const { key } = await params;
   if (!isRoomKey(key)) return NextResponse.json({ error: "room not found" }, { status: 404 });
 

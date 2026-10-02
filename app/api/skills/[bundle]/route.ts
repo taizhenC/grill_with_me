@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { skillFiles } from "@/lib/pack";
+import { enforceRequestLimit } from "@/lib/rate-limit";
 
 /**
  * GET /api/skills/[bundle] — the skill files, as { path, content }[].
@@ -18,9 +19,11 @@ const BUNDLES: Record<string, readonly string[]> = {
 };
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ bundle: string }> },
 ) {
+  const limited = await enforceRequestLimit(request, "read");
+  if (limited) return limited;
   const { bundle } = await params;
   const names = BUNDLES[bundle];
   if (!names) {

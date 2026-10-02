@@ -3,6 +3,7 @@ import { getStore, toPublic } from "@/lib/store";
 import { storageUnavailable } from "@/lib/store-response";
 import { renderPack } from "@/lib/pack";
 import { isRoomKey } from "@/lib/keys";
+import { enforceRequestLimit } from "@/lib/rate-limit";
 
 /**
  * GET /api/room/[key] — the JSON the CLI reads (decision 14).
@@ -15,6 +16,8 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ key: string }> },
 ) {
+  const limited = await enforceRequestLimit(request, "read");
+  if (limited) return limited;
   const { key } = await params;
   let stored;
   try {

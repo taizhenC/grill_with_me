@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getStore, NotFoundError } from "@/lib/store";
 import { readRequestText, MAX_CLAIM_JSON_BYTES } from "@/lib/request-body";
 import { isRoomKey } from "@/lib/keys";
+import { enforceRequestLimit } from "@/lib/rate-limit";
 import { storageUnavailable } from "@/lib/store-response";
 
 const claimBody = z.object({
@@ -19,6 +20,8 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ key: string }> },
 ) {
+  const limited = await enforceRequestLimit(request, "claim");
+  if (limited) return limited;
   const { key } = await params;
   if (!isRoomKey(key)) return NextResponse.json({ error: "room not found" }, { status: 404 });
 
