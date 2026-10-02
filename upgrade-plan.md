@@ -4,6 +4,23 @@ Prepared **2026-09-19**, against commit `1e7bbca`. Target confirmed by the proje
 
 The existing architecture fits the product: local agents conduct interviews, Git carries specs and contracts, and a small web service distributes packs. The next release should make that loop safe, dependable, and demonstrably useful. The most urgent work is dependency patching, local file protection, room access, database correctness, and making public onboarding available.
 
+## Implementation progress — 2026-10-02
+
+The first batch is implemented in separate PRs against `main`, pending review and merge. September dependency targets below describe the research snapshot; the security implementation uses the newer October-verified patches.
+
+| Plan item | Pull request | Implemented scope |
+|---|---|---|
+| Planning record | [#3](https://github.com/taizhenC/grill_with_me/pull/3) | Priorities, acceptance criteria, research, and this progress record |
+| P1-04 baseline | [#4](https://github.com/taizhenC/grill_with_me/pull/4) | Node 24 app CI, Node 22/24 Windows/Linux CLI checks, actual npm archive installation, and production skill tracing |
+| P0-01 | [#5](https://github.com/taizhenC/grill_with_me/pull/5) | Next 16.3.8, sharp 0.35.5, and Vitest/matching modules 4.1.11; unrelated dependencies retain their compatible locked versions |
+| P0-02 first slice | [#6](https://github.com/taizhenC/grill_with_me/pull/6) | Complete pack manifest validation, UTF-8 content bounds, linked destination rejection, whole-install preflight, and host dry-run |
+
+Pre-merge evidence: the [combined hosted CI run](https://github.com/taizhenC/grill_with_me/actions/runs/37076910493) passed all five jobs. Linux passed **151/151 tests**, typecheck, production build, and skill traces. CLI tests and installed-package checks passed with Node 22 and 24 on both Windows and Linux. Windows skips four Unix-specific file-symlink cases, all of which passed on Linux; its real junction/hardlink sentinel cases passed. A local real Next server smoke also passed host → publish → join → claim/status → republish → rejoin with pack v2. The final dependency branch's clean install and full audit passed, with zero reported vulnerabilities at verification time.
+
+Merge the CI baseline first so subsequent work has visible checks. All implementation commits use `taizhenC <tzhcheung@gmail.com>` as author and committer, have detailed bodies, and contain no co-author trailer. Each code PR has two focused commits; no implementation PR has been merged by this task.
+
+P0-02 remains partly open: origin/room-bound credentials, installed hashes/local-edit preservation, bounded HTTP reads/deadlines, and recoverable partial-write behavior follow in separate features. P1-04's real database/browser coverage and audit-policy gate also remain open. Room access/abuse controls, atomic production storage, deployment/publication, and live-agent/team validation have not yet been implemented.
+
 ## Baseline and evidence
 
 - `npm test`: **108 tests passed**, seven files.
