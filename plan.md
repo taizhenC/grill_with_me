@@ -2,6 +2,8 @@
 
 > Grill a whole team about their project — each member in their own CLI, with their own agent — then hold everyone to the contract that comes out of it.
 
+> For the next release, see the [public-beta upgrade plan](upgrade-plan.md) (2026-09-19): current P0–P3 priorities, verified gaps, and release gates. This document preserves the original design and delivery history.
+
 **Status: v1 built, UX pass done** (2026-08-18, branch `build/v1-skills-and-app`). All four skills, the web app, the CLI, and the examples exist and are tested — 103 unit/contract/CLI tests, including an end-to-end spawn of the real CLI against a stub of the real API, plus a live smoke of publish → join → status → republish → re-join. Remaining before calling M-milestones done: the *behavioral* exit criteria that need live grill runs (M1's reliability gate, M5's false-positive gate) and deployment (Vercel + Supabase). Rewritten 2026-08-17 (architecture reversal, §5); revised with §5 decisions 13–19, then 20–23 (the UX pass).
 
 ---
