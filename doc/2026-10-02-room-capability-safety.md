@@ -1,6 +1,7 @@
 # Room capability safety — 2026-10-02
 
 Plan: P0-03, room capabilities and collision safety. Branch: `codex/room-capability-safety`.
+Pull request: [#10](https://github.com/taizhenC/grill_with_me/pull/10).
 
 ## Implemented
 
@@ -28,7 +29,7 @@ host metadata also use `noindex, nofollow`. These controls apply to errors too.
 
 ## Validation
 
-- Windows, Node 22.15.0: full suite passed **185 tests**, with four Unix-only
+- Windows, Node 22.15.0 and verified Node 24.21.0: full suite passed **185 tests**, with four Unix-only
   symlink cases skipped; nine test files passed. Typecheck passed.
 - Both original collision regressions failed when tested against the original
   create methods. The fixed methods passed all ten deterministic collision
