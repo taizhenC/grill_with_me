@@ -134,8 +134,10 @@ Production: use `GRILL_STORE=supabase` (the default), set `SUPABASE_URL` and
 then deploy to Vercel. Missing or partial credentials reject room API requests
 with HTTP 503 instead of creating temporary rooms. Builds need no secrets.
 `GRILL_STORE=memory` is accepted only in development or tests; production
-rejects it. Never expose the service key to a browser. Rooms expire after 30
-days. If you deploy your own copy, the commands the app prints carry
+rejects it. Never expose the service key to a browser.
+`SUPABASE_URL` requires HTTPS; HTTP is permitted only for loopback endpoints
+in development or tests.
+Rooms expire after 30 days. If you deploy your own copy, the commands the app prints carry
 `--base` automatically.
 
 ## Release checks
