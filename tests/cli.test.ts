@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { createServer, type Server } from "node:http";
 import { execFile } from "node:child_process";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { parseGrillRoom, type GrillRoom } from "@/lib/schema";
-import { renderPack, skillFiles, AGENTS_BLOCK_START } from "@/lib/pack";
+import { renderPack, skillFiles, AGENTS_BLOCK_START, type PackFile } from "@/lib/pack";
 import { SPEC_HEADINGS } from "@/lib/spec-format";
 
 const execFileAsync = promisify(execFile);
@@ -50,6 +50,8 @@ let claims: Record<string, string>;
 let published: string[];
 let republished: { token: string; body: string }[];
 let packVersion: number;
+let memberPackOverride: unknown;
+let hostPackOverride: unknown;
 
 function summary() {
   return {
@@ -100,6 +102,7 @@ beforeAll(async () => {
       return send(200, { ok: true });
     }
     if (req.method === "GET" && url.pathname === "/api/skills/host") {
+      if (hostPackOverride !== undefined) return send(200, hostPackOverride);
       return send(200, {
         bundle: "host",
         files: skillFiles(["grill-host", "merge-contract"]),
@@ -108,6 +111,7 @@ beforeAll(async () => {
     if (req.method === "GET" && url.pathname === `/api/room/${ROOM_KEY}`) {
       const role = url.searchParams.get("role");
       if (!role) return send(200, summary());
+      if (memberPackOverride !== undefined) return send(200, memberPackOverride);
       return send(200, {
         ...summary(),
         role,
@@ -130,6 +134,8 @@ beforeEach(() => {
   published = [];
   republished = [];
   packVersion = 1;
+  memberPackOverride = undefined;
+  hostPackOverride = undefined;
 });
 
 async function repo(): Promise<string> {
@@ -152,7 +158,98 @@ async function run(args: string[], cwd: string) {
 
 const read = (dir: string, path: string) => readFile(join(dir, path), "utf8");
 
+describe("downloaded pack validation", () => {
+  const malformed: { name: string; change: (files: PackFile[]) => unknown }[] = [
+    { name: "absent files", change: () => ({}) },
+    { name: "non-array files", change: () => ({ files: {} }) },
+    { name: "missing required file", change: (files) => ({ files: files.slice(0, -1) }) },
+    { name: "duplicate file", change: (files) => ({ files: [...files.slice(0, -1), files[0]] }) },
+    { name: "case-colliding file", change: (files) => ({ files: [...files.slice(0, -1), { ...files[0], path: "agents.md" }] }) },
+    { name: "null file", change: (files) => ({ files: [...files.slice(0, -1), null] }) },
+    { name: "non-string path", change: (files) => ({ files: [...files.slice(0, -1), { path: 42, content: "bad" }] }) },
+    { name: "non-string content", change: (files) => ({ files: [...files.slice(0, -1), { ...files.at(-1), content: 42 }] }) },
+    { name: "empty content", change: (files) => ({ files: files.map((f, i) => i === 0 ? { ...f, content: "" } : f) }) },
+    { name: "oversized ASCII file", change: (files) => ({ files: files.map((f, i) => i === 0 ? { ...f, content: "x".repeat(256 * 1024 + 1) } : f) }) },
+    { name: "oversized UTF-8 file", change: (files) => ({ files: files.map((f, i) => i === 0 ? { ...f, content: "界".repeat(90_000) } : f) }) },
+    { name: "oversized total content", change: (files) => ({ files: files.map((f) => ({ ...f, content: "x".repeat(150 * 1024) })) }) },
+  ];
+
+  it.each(malformed)("rejects $name without creating files", async ({ change }) => {
+    const dir = await repo();
+    memberPackOverride = change(renderPack(parsed(), "backend", ROOM_KEY, 1));
+    const result = await run(
+      ["join", ROOM_KEY, "--role", "backend", "--base", base, "--force"],
+      dir,
+    );
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("pack");
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it.each([
+    "package.json", "grill/CONTRACT.md", "../outside.md", "/outside.md",
+    "C:/outside.md", "//server/share/file", "grill\\MY-ROLE.md",
+    "AGENTS.md:stream", "AGENTS.md.", "AGENTS.md ",
+    "grill/../AGENTS.md", "grill//MY-ROLE.md", "AGENTS.md\u0000",
+  ])("rejects the noncanonical path %j during dry-run", async (path) => {
+    const dir = await repo();
+    const files = renderPack(parsed(), "backend", ROOM_KEY, 1);
+    files[files.length - 1] = { path, content: "untrusted" };
+    memberPackOverride = { files };
+    const result = await run(
+      ["join", ROOM_KEY, "--role", "backend", "--base", base, "--dry-run", "--force"],
+      dir,
+    );
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("pack");
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it.each(["unexpected", "missing", "duplicate", "malformed"])(
+    "rejects a host pack with a late %s file before installing either skill",
+    async (problem) => {
+      const dir = await repo();
+      const files = skillFiles(["grill-host", "merge-contract"]);
+      hostPackOverride = { files: problem === "unexpected"
+        ? [files[0], { path: "package.json", content: "bad" }]
+        : problem === "missing" ? [files[0]]
+        : problem === "duplicate" ? [files[0], files[0]]
+        : [files[0], { path: files[1].path, content: null }] };
+      const result = await run(["host", "--base", base, "--force"], dir);
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("pack");
+      expect(await readdir(dir)).toEqual([]);
+    },
+  );
+});
+
 describe("join", () => {
+  it("rejects an unexpected member file before changing any file, even with --force", async () => {
+    const dir = await repo();
+    await writeFile(join(dir, "AGENTS.md"), "house rules\n");
+    await writeFile(join(dir, "package.json"), "keep this\n");
+    memberPackOverride = {
+      ...summary(),
+      role: "backend",
+      files: [
+        ...renderPack(parsed(), "backend", ROOM_KEY, 1),
+        { path: "package.json", content: "untrusted replacement" },
+      ],
+    };
+
+    const result = await run(
+      ["join", ROOM_KEY, "--role", "backend", "--name", "Alice", "--base", base, "--force"],
+      dir,
+    );
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("pack");
+    expect(await read(dir, "AGENTS.md")).toBe("house rules\n");
+    expect(await read(dir, "package.json")).toBe("keep this\n");
+    await expect(read(dir, "grill/.room")).rejects.toThrow();
+    expect(claims).toEqual({});
+  });
+
   it("writes the pack, records the claim, and says what to do next", async () => {
     const dir = await repo();
     const { code, stdout } = await run(

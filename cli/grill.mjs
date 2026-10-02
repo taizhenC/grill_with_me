@@ -25,6 +25,7 @@ import { dirname, join, resolve, relative, isAbsolute } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
+import { validatePack } from "./pack-files.mjs";
 
 const DEFAULT_BASE =
   process.env.GRILL_WITH_ME_URL ?? "https://grill-with-me.vercel.app";
@@ -364,7 +365,8 @@ async function cmdJoin(args) {
   const pack = await getJson(
     `${base}/api/room/${ref.key}?role=${encodeURIComponent(roleSlug)}`,
   );
-  const plan = await planWrites(root, pack.files, stamp, ref.key, args.force);
+  const files = validatePack(pack, "member");
+  const plan = await planWrites(root, files, stamp, ref.key, args.force);
 
   if (args.dryRun) {
     console.log(
@@ -445,9 +447,10 @@ async function cmdHost(args) {
   const base = args.base ?? DEFAULT_BASE;
   const root = process.cwd();
   const bundle = await getJson(`${base}/api/skills/host`);
+  const files = validatePack(bundle, "host");
 
   const written = [];
-  for (const file of bundle.files) {
+  for (const file of files) {
     const current = await readIfExists(safeTarget(root, file.path));
     if (current === file.content) {
       written.push(["unchanged", file.path]);

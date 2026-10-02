@@ -6,7 +6,7 @@
     "grill-with-me": "./grill.mjs"
   },
   "type": "module",
-  "files": ["grill.mjs"],
+  "files": ["grill.mjs", "pack-files.mjs"],
   "engines": {
     "node": ">=18"
   },
