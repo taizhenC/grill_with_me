@@ -20,11 +20,13 @@ import {
   readdir,
   mkdir,
   appendFile,
+  realpath,
 } from "node:fs/promises";
 import { dirname, join, resolve, relative, isAbsolute } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
+import { validatePack, preflightTargets, readPackFile } from "./pack-files.mjs";
 
 const DEFAULT_BASE =
   process.env.GRILL_WITH_ME_URL ?? "https://grill-with-me.vercel.app";
@@ -207,7 +209,9 @@ async function readIfExists(path) {
 
 async function writeInto(root, file) {
   const target = safeTarget(root, file.path);
+  await preflightTargets(root, [file.path]);
   await mkdir(dirname(target), { recursive: true });
+  await preflightTargets(root, [file.path]);
   await writeFile(target, file.content, "utf8");
 }
 
@@ -308,7 +312,7 @@ async function planWrites(root, files, stamp, roomKey, force) {
   const sameRoom = stamp?.roomKey === roomKey;
   for (const file of files) {
     const target = safeTarget(root, file.path);
-    const current = await readIfExists(target);
+    const current = await readPackFile(target);
     let content = file.content;
     if (file.path === "AGENTS.md") {
       content = mergeAgentsMd(current, file.content);
@@ -328,10 +332,11 @@ async function cmdJoin(args) {
   const ref = parseRoomRef(args.positional[0] ?? args.key);
   if (!ref.key) usage(1);
   const base = args.base ?? ref.base ?? DEFAULT_BASE;
-  const root = process.cwd();
+  const root = await realpath(process.cwd());
 
   const summary = await getJson(`${base}/api/room/${ref.key}`);
-  const stampRaw = await readIfExists(join(root, "grill", ".room"));
+  await preflightTargets(root, ["grill/.room"]);
+  const stampRaw = await readPackFile(join(root, "grill", ".room"));
   const stamp = stampRaw ? JSON.parse(stampRaw) : null;
   const sameRoom = stamp?.roomKey === ref.key;
 
@@ -364,7 +369,9 @@ async function cmdJoin(args) {
   const pack = await getJson(
     `${base}/api/room/${ref.key}?role=${encodeURIComponent(roleSlug)}`,
   );
-  const plan = await planWrites(root, pack.files, stamp, ref.key, args.force);
+  const files = validatePack(pack, "member");
+  await preflightTargets(root, files.map((file) => file.path));
+  const plan = await planWrites(root, files, stamp, ref.key, args.force);
 
   if (args.dryRun) {
     console.log(
@@ -443,12 +450,15 @@ async function claimQuietly(base, key, role, displayName) {
 
 async function cmdHost(args) {
   const base = args.base ?? DEFAULT_BASE;
-  const root = process.cwd();
+  const root = await realpath(process.cwd());
   const bundle = await getJson(`${base}/api/skills/host`);
+  const files = validatePack(bundle, "host");
+  await preflightTargets(root, files.map((file) => file.path));
 
   const written = [];
-  for (const file of bundle.files) {
-    const current = await readIfExists(safeTarget(root, file.path));
+  const pending = [];
+  for (const file of files) {
+    const current = await readPackFile(safeTarget(root, file.path));
     if (current === file.content) {
       written.push(["unchanged", file.path]);
       continue;
@@ -457,17 +467,25 @@ async function cmdHost(args) {
       written.push(["kept", file.path]);
       continue;
     }
-    await writeInto(root, file);
+    pending.push(file);
     written.push([current === null ? "created" : "updated", file.path]);
   }
+  if (!args.dryRun) {
+    for (const file of pending) await writeInto(root, file);
+  }
 
-  console.log(`\n${green("✓")} ${bold("Host skills installed")}\n`);
+  console.log(
+    args.dryRun
+      ? `\n${bold("Dry run")} — nothing written.\n`
+      : `\n${green("✓")} ${bold("Host skills installed")}\n`,
+  );
   for (const [status, path] of written) {
     console.log(`  ${dim(status.padEnd(9))} ${path}`);
   }
   if (written.some(([s]) => s === "kept")) {
     console.log(dim("\n  (kept your existing copies — pass --force to replace them)"));
   }
+  if (args.dryRun) return;
 
   console.log(`
 ${bold("Next:")}

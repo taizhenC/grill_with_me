@@ -53,6 +53,15 @@ grill, instead of hours later on your host's machine.
 Re-running `join` is safe: it updates the pack in place, keeps your own
 `AGENTS.md` content, and never touches your spec.
 
+`join` and `host` validate the complete downloaded file set before installation.
+Only the standard pack paths are accepted, with at most 256 KiB of UTF-8 content
+per file and 1 MiB total. They check all destinations before writing and reject
+symlinks, junctions, hard-linked files, and incompatible directories inside the
+checkout. `--force` cannot bypass these checks; `--dry-run` previews either
+installation without writing. Keep the checkout idle during installation:
+preflight does not prevent another process from changing paths concurrently or
+roll back an installation interrupted by an I/O failure.
+
 ## During the build — anyone, repeatedly
 
 - **`check-contract`** — compares the repo against the contract and reports
