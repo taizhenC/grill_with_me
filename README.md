@@ -45,7 +45,12 @@ that destination. Explicit republish tokens apply to that invocation and are
 not saved. Host operations require an HTTPS origin; HTTP is allowed for
 `localhost`, IPv4 loopback, and `::1` development servers. Redirects are refused.
 
-When every spec is committed, tell your agent: *run the merge-contract skill*.
+Keep the current `grill-room.json` with the host's checkout and share it in Git.
+When every role's spec is committed, run `npx grill-with-me merge-preflight`.
+It checks the project context, expected roles, and every role spec, and names
+missing or malformed inputs. It reads files without changing the prior contract.
+Then tell your agent: *run the merge-contract skill*; it must pass the same gate
+before writing. A fresh host uses this local room file and needs no member pack.
 `grill/CONTRACT.md` lands in the repo. Commit it.
 
 ## Each member — ten minutes
@@ -70,6 +75,12 @@ alias. Room pages and APIs send no-index, no-referrer, and private no-store head
 Not sure the spec came out right? `npx grill-with-me check-spec` validates it
 against the exact structure `merge-contract` parses — thirty seconds after the
 grill, instead of hours later on your host's machine.
+
+`check-spec` and `merge-preflight` share one validator. It requires the five
+exact ordered H2 sections outside code fences and HTML comments; duplicates,
+suffixed headings, and wholly empty specs fail. Partially thin specs warn and
+pass, so the team can resolve undecided sections explicitly. One person can
+cover two roles by retaining both `grill/<role>-spec.md` files.
 
 Re-running `join` is safe: it updates the pack in place, keeps your own
 `AGENTS.md` content, and never touches your spec.
@@ -113,6 +124,7 @@ grill/
 |---|---|---|
 | `join <key\|url>` | member | writes your role's pack into this repo |
 | `check-spec [file]` | member | is the spec you just wrote well-formed? |
+| `merge-preflight [room-file]` | host | validates project context, complete role roster, and specs before merge |
 | `host` | host | installs `grill-host` + `merge-contract` here |
 | `publish <file>` | host | publishes `grill-room.json`, prints the link |
 | `republish [file]` | host | replaces the room content, bumps the version |

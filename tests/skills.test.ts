@@ -119,6 +119,13 @@ describe("merge-contract skill", () => {
     expect(skill).toContain("do not merge around it");
   });
 
+  it("requires the executable gate and host roster before replacing a contract", () => {
+    expect(skill).toContain("npx grill-with-me merge-preflight grill-room.json");
+    expect(skill).toContain("manifest.project");
+    expect(skill).toContain("manifest.roles");
+    expect(skill).toContain("Do not write or replace");
+  });
+
   it("routes contradictions to UNRESOLVED and gaps to NOBODY OWNS THIS", () => {
     expect(skill).toContain("## ⚠️ UNRESOLVED — decide this before you code");
     expect(skill).toContain("## ⚠️ NOBODY OWNS THIS");
