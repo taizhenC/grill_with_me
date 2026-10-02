@@ -1,6 +1,7 @@
 # Deterministic specs and merge preflight — 2026-10-02
 
 Plan: P1-01. Branch: `codex/spec-merge-preflight`, based on `09938af`.
+Pull request: [#17](https://github.com/taizhenC/grill_with_me/pull/17).
 
 ## Implemented
 
@@ -40,7 +41,7 @@ committing the generated spec. The actual npm archive contains all helpers.
   specs, and preservation of existing contracts, types, history, and inputs.
 - Windows Node 24.21.0: full suite passed **325 tests**, with seven existing
   skips; all 16 test files passed. Typecheck passed. Node 22.15.0 focused
-  parser/CLI/pack tests passed **112 tests**, with four existing skips.
+  CLI/parser/merge-gate tests passed **165 tests**, with seven existing skips.
 - Next 16.3.8 production build and production skill traces passed. Installed
   npm archive smoke passed on Node 22 and Node 24, including valid/invalid
   spec checks and the host merge gate. CI runs the new suites on Windows/Linux
