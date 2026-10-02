@@ -6,7 +6,7 @@ The existing architecture fits the product: local agents conduct interviews, Git
 
 ## Implementation progress — 2026-10-02
 
-The first batch is implemented in separate PRs against `main`, pending review and merge. September dependency targets below describe the research snapshot; the security implementation uses the newer October-verified patches.
+The first batch is merged into `main` in separate PRs. September dependency targets below describe the research snapshot; the security implementation uses the newer October-verified patches. Completion reports for finished features are in `doc/`.
 
 | Plan item | Pull request | Implemented scope |
 |---|---|---|
@@ -17,7 +17,7 @@ The first batch is implemented in separate PRs against `main`, pending review an
 
 Pre-merge evidence: the [combined hosted CI run](https://github.com/taizhenC/grill_with_me/actions/runs/37076910493) passed all five jobs. Linux passed **151/151 tests**, typecheck, production build, and skill traces. CLI tests and installed-package checks passed with Node 22 and 24 on both Windows and Linux. Windows skips four Unix-specific file-symlink cases, all of which passed on Linux; its real junction/hardlink sentinel cases passed. A local real Next server smoke also passed host → publish → join → claim/status → republish → rejoin with pack v2. The final dependency branch's clean install and full audit passed, with zero reported vulnerabilities at verification time.
 
-Merge the CI baseline first so subsequent work has visible checks. All implementation commits use `taizhenC <tzhcheung@gmail.com>` as author and committer, have detailed bodies, and contain no co-author trailer. Each code PR has two focused commits; no implementation PR has been merged by this task.
+PRs #3–#6 were merged before the new main validation, as requested. Post-merge [CI run 37077465585](https://github.com/taizhenC/grill_with_me/actions/runs/37077465585) passed all five jobs on exact `main` revision `eb737f461a7c2e27b016c08abea2848d129a72c1`. Local Node 24 tests, typecheck, build, traces, installed-package smoke, full audit, and the real-server host-to-rejoin flow also passed. All implementation and local merge commits use `taizhenC <tzhcheung@gmail.com>` as author and committer, have detailed bodies, and contain no co-author trailer. Each code PR has two focused feature commits.
 
 P0-02 remains partly open: origin/room-bound credentials, installed hashes/local-edit preservation, bounded HTTP reads/deadlines, and recoverable partial-write behavior follow in separate features. P1-04's real database/browser coverage and audit-policy gate also remain open. Room access/abuse controls, atomic production storage, deployment/publication, and live-agent/team validation have not yet been implemented.
 
