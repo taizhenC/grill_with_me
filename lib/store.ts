@@ -14,6 +14,8 @@ import { generateRoomKey, generateHostToken } from "./keys";
  */
 
 export const ROOM_TTL_DAYS = 30;
+/** Bound retries even if randomness is broken or the key space is exhausted. */
+export const ROOM_CREATION_ATTEMPTS = 5;
 
 export type StoredRoom = {
   key: string;
@@ -59,18 +61,23 @@ export class MemoryStore implements RoomStore {
   private rooms = new Map<string, StoredRoom>();
 
   async create(room: GrillRoom) {
-    const key = generateRoomKey();
-    const hostToken = generateHostToken();
-    this.rooms.set(key, {
-      key,
-      hostToken,
-      version: 1,
-      room,
-      claims: {},
-      createdAt: new Date().toISOString(),
-      expiresAt: expiry(),
-    });
-    return { key, hostToken };
+    for (let attempt = 0; attempt < ROOM_CREATION_ATTEMPTS; attempt++) {
+      const key = generateRoomKey();
+      // Expired entries still own their keys until purged; never revive a link.
+      if (this.rooms.has(key)) continue;
+      const hostToken = generateHostToken();
+      this.rooms.set(key, {
+        key,
+        hostToken,
+        version: 1,
+        room,
+        claims: {},
+        createdAt: new Date().toISOString(),
+        expiresAt: expiry(),
+      });
+      return { key, hostToken };
+    }
+    throw new Error("room creation failed: unique key retries exhausted");
   }
 
   async get(key: string) {
@@ -126,18 +133,25 @@ export class SupabaseStore implements RoomStore {
   constructor(private db: SupabaseClient) {}
 
   async create(room: GrillRoom) {
-    const key = generateRoomKey();
     const hostToken = generateHostToken();
-    const { error } = await this.db.from("rooms").insert({
-      key,
-      host_token: hostToken,
-      version: 1,
-      room,
-      claims: {},
-      expires_at: expiry(),
-    });
-    if (error) throw new Error(`room insert failed: ${error.message}`);
-    return { key, hostToken };
+    for (let attempt = 0; attempt < ROOM_CREATION_ATTEMPTS; attempt++) {
+      const key = generateRoomKey();
+      const { error } = await this.db.from("rooms").insert({
+        key,
+        host_token: hostToken,
+        version: 1,
+        room,
+        claims: {},
+        expires_at: expiry(),
+      });
+      if (!error) return { key, hostToken };
+      // 0001_rooms.sql gives key its own UNIQUE constraint; rooms_pkey is id.
+      // PostgREST exposes the constraint name in PostgreSQL's error message.
+      const keyCollision = error.code === "23505" &&
+        error.message === 'duplicate key value violates unique constraint "rooms_key_key"';
+      if (!keyCollision) throw new Error(`room insert failed: ${error.message}`);
+    }
+    throw new Error("room creation failed: unique key retries exhausted");
   }
 
   async get(key: string) {
