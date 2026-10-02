@@ -26,6 +26,7 @@ import { dirname, join, resolve, relative, isAbsolute } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
+import { isRoomKey } from "./room-key.mjs";
 import { validatePack, preflightTargets, readPackFile } from "./pack-files.mjs";
 
 const DEFAULT_BASE =
@@ -136,14 +137,17 @@ function parseArgs(argv) {
  */
 function parseRoomRef(raw) {
   if (!raw) return { key: null, base: null };
+  if (typeof raw !== "string") fail("invalid room key", "paste the full room link from your host");
   const trimmed = raw.trim().replace(/[),.]+$/, "");
   const match = trimmed.match(/^https?:\/\/[^/]+(?:\/[^/]*)*?\/r\/([^/?#]+)/);
   if (match) {
+    if (!isRoomKey(match[1])) fail("invalid room key", "paste the full room link from your host");
     return { key: match[1], base: new URL(trimmed).origin };
   }
   if (/^https?:\/\//.test(trimmed)) {
     fail(`that URL has no room in it: ${trimmed}`, "expected .../r/<room-key>");
   }
+  if (!isRoomKey(trimmed)) fail("invalid room key", "paste the full room link from your host");
   return { key: trimmed, base: null };
 }
 
@@ -245,7 +249,7 @@ async function readConfig(root) {
 }
 
 /**
- * The host token is the only secret in the product and it is shown once.
+ * The host token authorizes changes to a room and it is shown once.
  * Saving it beside the repo turns "re-publish" from a curl with a bearer
  * token into a command with no arguments — and gitignoring it is the same
  * favor any tool that writes a credential owes you.
@@ -526,6 +530,7 @@ async function cmdPublish(args) {
   const raw = await readRoomFile(file);
 
   const result = await postJson(`${base}/api/rooms`, raw);
+  if (!isRoomKey(result.key)) fail("server returned an invalid room key");
   const roomUrl = `${base}${result.url}`;
   const config = await saveConfig(root, {
     base,
@@ -556,7 +561,7 @@ async function cmdRepublish(args) {
   const root = process.cwd();
   const config = await readConfig(root);
   const base = args.base ?? config.base ?? DEFAULT_BASE;
-  const key = parseRoomRef(args.key ?? args.positional[1]).key ?? config.roomKey;
+  const key = parseRoomRef(args.key ?? args.positional[1] ?? config.roomKey).key;
   const token = args.token ?? process.env.GRILL_WITH_ME_TOKEN ?? config.hostToken;
   const file = args.positional[0] ?? "grill-room.json";
 

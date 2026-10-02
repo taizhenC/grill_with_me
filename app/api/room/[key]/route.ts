@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getStore, toPublic } from "@/lib/store";
 import { renderPack } from "@/lib/pack";
+import { isRoomKey } from "@/lib/keys";
 
 /**
  * GET /api/room/[key] — the JSON the CLI reads (decision 14).
@@ -14,7 +15,7 @@ export async function GET(
   { params }: { params: Promise<{ key: string }> },
 ) {
   const { key } = await params;
-  const stored = await getStore().get(key);
+  const stored = isRoomKey(key) ? await getStore().get(key) : null;
   if (!stored) {
     return NextResponse.json(
       { error: `no room "${key}" — it may have expired` },

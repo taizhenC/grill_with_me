@@ -5,6 +5,7 @@ import { joinCommand } from "@/lib/commands";
 import { requestOrigin } from "@/lib/origin";
 import { GRILL_COMMAND } from "@/lib/pack";
 import { RoleList } from "./role-list";
+import { isRoomKey } from "@/lib/keys";
 
 export const dynamic = "force-dynamic";
 
@@ -20,13 +21,14 @@ export async function generateMetadata({
   params: Promise<{ key: string }>;
 }): Promise<Metadata> {
   const { key } = await params;
-  const stored = await getStore().get(key);
+  const stored = isRoomKey(key) ? await getStore().get(key) : null;
   if (!stored) return { title: "Room not found" };
   const title = `${stored.room.project.name} — pick your role`;
   return {
     title,
     description: `Your team is splitting into roles on ${stored.room.project.name}. Ten minutes: pick yours, get grilled about your layer, commit the spec.`,
     openGraph: { title, type: "website" },
+    robots: { index: false, follow: false },
   };
 }
 
@@ -36,7 +38,7 @@ export default async function RoomPage({
   params: Promise<{ key: string }>;
 }) {
   const { key } = await params;
-  const stored = await getStore().get(key);
+  const stored = isRoomKey(key) ? await getStore().get(key) : null;
   if (!stored) notFound();
 
   const pub = toPublic(stored);

@@ -8,10 +8,11 @@ import {
 } from "@/lib/commands";
 import { requestOrigin } from "@/lib/origin";
 import { CopyLine } from "@/app/copy";
+import { isRoomKey } from "@/lib/keys";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = { title: "Host view", robots: { index: false } };
+export const metadata: Metadata = { title: "Host view", robots: { index: false, follow: false } };
 
 /**
  * Host view: who has claimed what, and the two commands the host needs after
@@ -25,7 +26,7 @@ export default async function HostPage({
   params: Promise<{ key: string }>;
 }) {
   const { key } = await params;
-  const stored = await getStore().get(key);
+  const stored = isRoomKey(key) ? await getStore().get(key) : null;
   if (!stored) notFound();
 
   const pub = toPublic(stored);

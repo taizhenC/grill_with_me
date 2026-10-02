@@ -5,7 +5,7 @@ import { useState } from "react";
 /**
  * A copyable line. Every string this app shows a user is meant to be pasted
  * somewhere — a terminal, a group chat, a password manager — and selecting
- * a monospace room key by hand at a table full of people is exactly the
+ * a room capability by hand at a table full of people is exactly the
  * friction this product exists to remove.
  */
 export function CopyLine({

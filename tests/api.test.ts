@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { ROOM_KEY_PATTERN } from "@/lib/keys";
 import { MemoryStore, setStore, getStore } from "@/lib/store";
 import { resetRateLimit } from "@/lib/rate-limit";
 import { ROOM_SCHEMA_VERSION } from "@/lib/schema";
@@ -46,7 +47,7 @@ beforeEach(() => {
 describe("POST /api/rooms", () => {
   it("publishes a valid room and returns key + host token + url", async () => {
     const { key, hostToken } = await publish();
-    expect(key).toMatch(/^[a-z]+-[a-z]+-\d{2}$/);
+    expect(key).toMatch(ROOM_KEY_PATTERN);
     expect(hostToken.length).toBeGreaterThanOrEqual(32);
   });
 
@@ -83,6 +84,53 @@ describe("POST /api/rooms", () => {
 });
 
 describe("GET /api/room/[key]", () => {
+  it("does not query storage for malformed capabilities on read or mutation routes", async () => {
+    const store = getStore();
+    const get = vi.spyOn(store, "get");
+    const claim = vi.spyOn(store, "claim");
+    const write = vi.spyOn(store, "republish");
+    const key = "not-a-room-key";
+    const read = await getRoom(new Request(`http://test/api/room/${key}`), params(key));
+    const claimed = await claimRole(post(`http://test/api/room/${key}/claim`, "{}"), params(key));
+    const replaced = await republish(post(`http://test/api/room/${key}/republish`, roomJson()), params(key));
+    expect([read.status, claimed.status, replaced.status]).toEqual([404, 404, 404]);
+    expect(get).not.toHaveBeenCalled();
+    expect(claim).not.toHaveBeenCalled();
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it("does not reveal data for an incorrect but well-formed capability", async () => {
+    await publish();
+    const key = "r_00000000000000000000000000000000";
+    const res = await getRoom(new Request(`http://test/api/room/${key}?role=backend`), params(key));
+    expect(res.status).toBe(404);
+    expect(await res.text()).not.toContain("Trailhead");
+  });
+
+  it("keeps existing legacy links accessible only under their original key and expiry", async () => {
+    const store = getStore() as MemoryStore;
+    const { key: originalKey, hostToken } = await publish();
+    const stored = (await store.get(originalKey))!;
+    const key = "pearl-summit-88";
+    // Seed a pre-upgrade row; new creation must never issue this format.
+    // @ts-expect-error - test seeds private in-memory rows
+    store.rooms.delete(originalKey);
+    // @ts-expect-error - test seeds private in-memory rows
+    store.rooms.set(key, { ...stored, key });
+    const res = await getRoom(new Request(`http://test/api/room/${key}?role=backend`), params(key));
+    expect(res.status).toBe(200);
+    expect((await res.json()).key).toBe(key);
+    const claimed = await claimRole(post(`http://test/api/room/${key}/claim`, JSON.stringify({ role: "backend", displayName: "Alice" })), params(key));
+    expect(claimed.status).toBe(200);
+    const replaced = await republish(post(`http://test/api/room/${key}/republish`, roomJson("Updated legacy room"), { authorization: `Bearer ${hostToken}` }), params(key));
+    expect(replaced.status).toBe(200);
+    expect((await store.get(key))!.expiresAt).toBe(stored.expiresAt);
+    // @ts-expect-error - test expires private in-memory row
+    store.rooms.get(key).expiresAt = new Date(Date.now() - 1_000).toISOString();
+    expect((await getRoom(new Request(`http://test/api/room/${key}`), params(key))).status).toBe(404);
+    expect(await store.get(originalKey)).toBeNull();
+  });
+
   it("returns the summary without pack files or host token", async () => {
     const { key } = await publish();
     const res = await getRoom(

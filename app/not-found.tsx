@@ -15,8 +15,9 @@ export default function NotFound() {
         {ROOM_TTL_DAYS} days.
       </p>
       <p className="muted">
-        Room keys look like <span className="mono">pearl-summit-88</span> —
-        three parts, all lowercase. Try pasting the key or the whole link:
+        Paste the whole room link or key your host sent you. New keys start
+        with <span className="mono">r_</span>; older room links also work
+        until they expire.
       </p>
       <JoinBox />
       <p className="muted small">

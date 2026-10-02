@@ -29,9 +29,11 @@ function room(name = "Trailhead"): GrillRoom {
 }
 
 describe("keys", () => {
-  it("room keys are speakable and match the documented pattern", () => {
+  it("room keys encode 16 cryptographically random bytes in the strong format", () => {
     for (let i = 0; i < 50; i++) {
-      expect(generateRoomKey()).toMatch(ROOM_KEY_PATTERN);
+      const key = generateRoomKey();
+      expect(key).toMatch(ROOM_KEY_PATTERN);
+      expect(Buffer.from(key.slice(2), "hex")).toHaveLength(16);
     }
   });
 

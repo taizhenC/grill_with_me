@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getStore, NotFoundError } from "@/lib/store";
+import { isRoomKey } from "@/lib/keys";
 
 const claimBody = z.object({
   role: z.string().min(1).max(40),
@@ -17,6 +18,7 @@ export async function POST(
   { params }: { params: Promise<{ key: string }> },
 ) {
   const { key } = await params;
+  if (!isRoomKey(key)) return NextResponse.json({ error: "room not found" }, { status: 404 });
 
   let body: unknown;
   try {
