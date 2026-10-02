@@ -119,6 +119,12 @@ describe("request enforcement", () => {
     expect(response?.status).toBe(503); expect(response?.headers.get("retry-after")).toBe("5");
     expect(await response?.text()).not.toContain("private");
   });
+  it("recognizes backend errors created in another Next bundle", async () => {
+    class OtherBundleQuotaError extends Error { readonly code = "GRILL_QUOTA_UNAVAILABLE"; }
+    setRequestLimiter({ consume: async () => { throw new OtherBundleQuotaError("private backend details"); } });
+    const response = await enforceRequestLimit(request(), "read");
+    expect(response?.status).toBe(503); expect(await response?.text()).not.toContain("private");
+  });
   it("cannot fall back to a local quota map in unconfigured production", async () => {
     vi.stubEnv("NODE_ENV", "production"); vi.stubEnv("GRILL_STORE", "memory");
     expect((await enforceRequestLimit(request(), "create"))?.status).toBe(503);

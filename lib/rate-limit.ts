@@ -18,7 +18,16 @@ export type QuotaDecision = { allowed: boolean; retryAfter: number };
 export interface RequestLimiter {
   consume(action: RequestAction, bucket: string): Promise<QuotaDecision>;
 }
-export class QuotaUnavailableError extends Error {}
+export class QuotaUnavailableError extends Error {
+  readonly code = "GRILL_QUOTA_UNAVAILABLE";
+}
+
+function isQuotaUnavailable(error: unknown): boolean {
+  // The cached backend can originate in a different Next API/proxy bundle,
+  // whose Error subclass constructor has a different identity.
+  return typeof error === "object" && error !== null &&
+    "code" in error && error.code === "GRILL_QUOTA_UNAVAILABLE";
+}
 
 /** Trust only sanitized deployment ingress, never arbitrary forwarded headers. */
 export function clientIp(request: Request): string {
@@ -117,7 +126,7 @@ export async function enforceRequestLimit(request: Request, action: RequestActio
   } catch (error) {
     const configuration = storageUnavailable(error);
     if (configuration) return configuration;
-    if (!(error instanceof QuotaUnavailableError)) throw error;
+    if (!isQuotaUnavailable(error)) throw error;
     return NextResponse.json({ error: "request protection is unavailable; try again later" }, {
       status: 503, headers: { "retry-after": "5", "cache-control": "no-store" },
     });
