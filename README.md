@@ -32,6 +32,19 @@ You get a room link to share, a host view to watch, and your host token saved
 to `.grill-with-me.json` (and gitignored). Prefer a browser? Drop the file on
 the web app instead — same result.
 
+CLI publishing requires Git to verify that credential files are untracked. It
+creates or updates `.gitignore` before publishing, including in a folder that
+has not run `git init` yet. Credentials are saved by replacing an ignored
+temporary file, with owner-only permissions on Unix. The token is not printed.
+Tracked credential files and linked config/ignore paths cause an error before
+publishing; remove exposed credentials from tracking and rotate them first.
+
+Saved tokens work only for their original normalized origin and room. Changing
+`--base` or `--key` requires an explicit `--token` or `GRILL_WITH_ME_TOKEN` for
+that destination. Explicit republish tokens apply to that invocation and are
+not saved. Host operations require an HTTPS origin; HTTP is allowed for
+`localhost`, IPv4 loopback, and `::1` development servers. Redirects are refused.
+
 When every spec is committed, tell your agent: *run the merge-contract skill*.
 `grill/CONTRACT.md` lands in the repo. Commit it.
 

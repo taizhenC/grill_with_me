@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createServer, type Server } from "node:http";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { chmod, link, mkdir, mkdtemp, readFile, readdir, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -21,6 +21,7 @@ let foreignCalls: number;
 let foreignExplicitToken: boolean;
 let redirectTo: string | null;
 let echoAuthError: boolean;
+let beforePublish: (() => Promise<void>) | null;
 
 async function listen(server: Server) {
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -34,6 +35,7 @@ beforeAll(async () => {
     for await (const _chunk of req) { /* consume the request */ }
     const path = req.url ?? "/";
     calls.push({ path, expectedToken: req.headers.authorization === `Bearer ${TOKEN}` });
+    if (path === "/api/rooms" && beforePublish) await beforePublish();
     if (redirectTo) {
       res.writeHead(307, { location: redirectTo });
       return res.end();
@@ -69,6 +71,7 @@ beforeEach(() => {
   foreignExplicitToken = false;
   redirectTo = null;
   echoAuthError = false;
+  beforePublish = null;
 });
 
 async function checkout(saved = true) {
@@ -182,6 +185,156 @@ describe("host credential destinations", () => {
     const result = await run(["republish"], await checkout());
     expect(result.code).toBe(1);
     expect(result.stderr).toContain("[redacted]");
+    expect((result.stdout + result.stderr).includes(TOKEN)).toBe(false);
+  });
+});
+
+describe("host credential storage", () => {
+  it("creates Git ignore protection before publishing into a fresh checkout", async () => {
+    const dir = await checkout(false);
+    await exec("git", ["init", "--quiet"], { cwd: dir });
+    let ignoredBeforePublish = false;
+    beforePublish = async () => {
+      try {
+        await exec("git", ["check-ignore", "--quiet", CONFIG], { cwd: dir });
+        ignoredBeforePublish = true;
+      } catch { /* record failure without exposing request data */ }
+    };
+
+    const result = await run(["publish", "--base", base], dir);
+
+    expect(result.code).toBe(0);
+    expect(ignoredBeforePublish).toBe(true);
+    const stored = JSON.parse(await readFile(join(dir, CONFIG), "utf8"));
+    expect(stored.base).toBe(base);
+    expect(stored.roomKey).toBe(KEY);
+    expect(stored.hostToken === TOKEN).toBe(true);
+    await expect(exec("git", ["check-ignore", "--quiet", CONFIG], { cwd: dir })).resolves.toBeDefined();
+    expect((result.stdout + result.stderr).includes(TOKEN)).toBe(false);
+  });
+
+  it("protects a folder without .git before a future git init", async () => {
+    const dir = await checkout(false);
+    const result = await run(["publish", "--base", `${base}/`], dir);
+    expect(result.code).toBe(0);
+    await exec("git", ["init", "--quiet"], { cwd: dir });
+    await expect(exec("git", ["check-ignore", "--quiet", CONFIG], { cwd: dir })).resolves.toBeDefined();
+    expect((await readdir(dir)).includes(`${CONFIG}.tmp`)).toBe(false);
+    expect((result.stdout + result.stderr).includes(TOKEN)).toBe(false);
+  });
+
+  it("keeps existing ignore rules and overrides a later credential negation", async () => {
+    const dir = await checkout(false);
+    await exec("git", ["init", "--quiet"], { cwd: dir });
+    await writeFile(join(dir, ".gitignore"), `node_modules/\n${CONFIG}\n!${CONFIG}`);
+    const result = await run(["publish", "--base", base], dir);
+    expect(result.code).toBe(0);
+    expect((await readFile(join(dir, ".gitignore"), "utf8")).startsWith("node_modules/\n")).toBe(true);
+    await expect(exec("git", ["check-ignore", "--quiet", CONFIG], { cwd: dir })).resolves.toBeDefined();
+    await expect(exec("git", ["check-ignore", "--quiet", `${CONFIG}.tmp`], { cwd: dir })).resolves.toBeDefined();
+  });
+
+  it.each(["publish", "republish"])("rejects a tracked config before %s sends anything", async (command) => {
+    const dir = await checkout();
+    await exec("git", ["init", "--quiet"], { cwd: dir });
+    await exec("git", ["add", "--", CONFIG], { cwd: dir });
+    const before = await readFile(join(dir, CONFIG), "utf8");
+    const result = await run([command, "--base", base], dir);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("already tracked");
+    expect(calls).toEqual([]);
+    expect(await readFile(join(dir, CONFIG), "utf8") === before).toBe(true);
+    expect((await readdir(dir)).includes(".gitignore")).toBe(false);
+    expect((result.stdout + result.stderr).includes(TOKEN)).toBe(false);
+  });
+
+  it.each([CONFIG, ".gitignore"])("rejects a hard-linked %s without changing the outside file", async (path) => {
+    const dir = await checkout(false);
+    const outside = await checkout(false);
+    await writeFile(join(outside, "sentinel"), "outside sentinel\n");
+    await link(join(outside, "sentinel"), join(dir, path));
+    const result = await run(["publish", "--base", base], dir);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("hard-linked");
+    expect(calls).toEqual([]);
+    expect(await readFile(join(outside, "sentinel"), "utf8")).toBe("outside sentinel\n");
+  });
+
+  it.each([CONFIG, ".gitignore"])("rejects a directory junction/symlink at %s", async (path) => {
+    const dir = await checkout(false);
+    const outside = await checkout(false);
+    await symlink(outside, join(dir, path), process.platform === "win32" ? "junction" : "dir");
+    const result = await run(["publish", "--base", base], dir);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(/links|junctions/);
+    expect(calls).toEqual([]);
+    expect(await readdir(outside)).toEqual(["grill-room.json"]);
+  });
+
+  it.skipIf(process.platform === "win32").each([CONFIG, ".gitignore"])(
+    "rejects a file symlink at %s",
+    async (path) => {
+      const dir = await checkout(false);
+      const outside = await checkout(false);
+      await symlink(join(outside, "grill-room.json"), join(dir, path), "file");
+      const result = await run(["publish", "--base", base], dir);
+      expect(result.code).toBe(1);
+      expect(calls).toEqual([]);
+      expect(await readFile(join(outside, "grill-room.json"), "utf8")).toBe("{}\n");
+    },
+  );
+
+  it.each([CONFIG, ".gitignore"])("refuses a directory at the %s file destination", async (path) => {
+    const dir = await checkout(false);
+    await mkdir(join(dir, path));
+    const result = await run(["publish", "--base", base], dir);
+    expect(result.code).toBe(1);
+    expect(calls).toEqual([]);
+    expect(await readdir(join(dir, path))).toEqual([]);
+  });
+
+  it.each([`{"hostToken":"${TOKEN}"`, `{"hostToken":42}`])("rejects malformed local config without printing its contents", async (contents) => {
+    const dir = await checkout();
+    await writeFile(join(dir, CONFIG), contents);
+    const result = await run(["republish"], dir);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain(`invalid ${CONFIG}`);
+    expect(calls).toEqual([]);
+    expect((result.stdout + result.stderr).includes(TOKEN)).toBe(false);
+  });
+
+  it.skipIf(process.platform === "win32")("replaces an old config with owner-only permissions", async () => {
+    const dir = await checkout();
+    await chmod(join(dir, CONFIG), 0o666);
+    const result = await run(["publish", "--base", base], dir);
+    expect(result.code).toBe(0);
+    expect((await stat(join(dir, CONFIG))).mode & 0o777).toBe(0o600);
+    expect((await readdir(dir)).includes(`${CONFIG}.tmp`)).toBe(false);
+  });
+
+  it.skipIf(process.platform !== "win32" && process.getuid?.() === 0)("does not publish if ignore protection cannot be written", async () => {
+    const dir = await checkout(false);
+    await writeFile(join(dir, ".gitignore"), "house rules\n");
+    await chmod(join(dir, ".gitignore"), 0o444);
+    try {
+      const result = await run(["publish", "--base", base], dir);
+      expect(result.code).toBe(1);
+      expect(calls).toEqual([]);
+      expect((await readdir(dir)).includes(CONFIG)).toBe(false);
+    } finally {
+      await chmod(join(dir, ".gitignore"), 0o644);
+    }
+  });
+
+  it("preserves the existing config if a storage conflict appears during publish", async () => {
+    const dir = await checkout();
+    const before = await readFile(join(dir, CONFIG), "utf8");
+    beforePublish = async () => { await writeFile(join(dir, `${CONFIG}.tmp`), "another operation\n"); };
+    const result = await run(["publish", "--base", base], dir);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("may have succeeded");
+    expect(await readFile(join(dir, CONFIG), "utf8") === before).toBe(true);
+    expect(await readFile(join(dir, `${CONFIG}.tmp`), "utf8")).toBe("another operation\n");
     expect((result.stdout + result.stderr).includes(TOKEN)).toBe(false);
   });
 });

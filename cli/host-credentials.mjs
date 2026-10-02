@@ -1,3 +1,14 @@
+import { execFile } from "node:child_process";
+import { lstat, rename, unlink, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { promisify } from "node:util";
+import { preflightTargets, readPackFile } from "./pack-files.mjs";
+
+const exec = promisify(execFile);
+export const CONFIG_FILE = ".grill-with-me.json";
+const TEMP_FILE = `${CONFIG_FILE}.tmp`;
+const IGNORE_BLOCK = `# grill-with-me host credentials — do not commit\n/${CONFIG_FILE}\n/${TEMP_FILE}\n`;
+
 /** Credential-bearing operations support origin URLs, not arbitrary API paths. */
 export function normalizeHostOrigin(value) {
   let url;
@@ -45,4 +56,99 @@ export function selectHostToken(config, base, roomKey, explicitToken) {
     throw new Error("saved host token belongs to a different origin or room; supply an explicit --token for this destination");
   }
   return validateHostToken(config.hostToken);
+}
+
+
+async function git(root, args) {
+  const env = { ...process.env, LC_ALL: "C" };
+  // Inspect this checkout's real index, not an unrelated GIT_DIR/index override.
+  for (const key of Object.keys(env)) if (key.startsWith("GIT_")) delete env[key];
+  try {
+    const { stdout, stderr } = await exec("git", args, { cwd: root, env });
+    return { code: 0, stdout, stderr };
+  } catch (err) {
+    if (err.code === "ENOENT") throw new Error("Git is required to verify host credential storage");
+    if (typeof err.code !== "number") throw new Error("could not verify Git state for host credentials");
+    return { code: err.code, stdout: err.stdout, stderr: err.stderr };
+  }
+}
+
+async function assertUntracked(root) {
+  const context = await git(root, ["rev-parse", "--is-inside-work-tree"]);
+  if (context.code !== 0 && context.stderr.includes("not a git repository")) return false;
+  if (context.code !== 0 || context.stdout.trim() !== "true") {
+    throw new Error("could not verify this checkout's Git state; host credentials were not used or saved");
+  }
+  const tracked = await git(root, [
+    "ls-files", "--cached", "--stage", "--",
+    `:(icase,literal)${CONFIG_FILE}`, `:(icase,literal)${TEMP_FILE}`,
+  ]);
+  if (tracked.code !== 0) throw new Error("could not verify whether host credential files are tracked");
+  if (tracked.stdout) {
+    throw new Error("host credential file is already tracked by Git; remove it from tracking and rotate any exposed token before retrying");
+  }
+  return true;
+}
+
+export async function readHostConfig(root) {
+  await preflightTargets(root, [CONFIG_FILE]);
+  const raw = await readPackFile(join(root, CONFIG_FILE));
+  if (raw === null) return {};
+  await assertUntracked(root);
+  let config;
+  try {
+    config = JSON.parse(raw);
+  } catch {
+    throw new Error(`invalid ${CONFIG_FILE}; repair or move the file before retrying`);
+  }
+  if (!config || Array.isArray(config) || typeof config !== "object" ||
+      ["base", "roomKey", "hostToken"].some((key) => config[key] !== undefined && typeof config[key] !== "string")) {
+    throw new Error(`invalid ${CONFIG_FILE}; expected string credential fields`);
+  }
+  return config;
+}
+
+/** Establish ignore protection before asking a server to create a credential. */
+export async function prepareHostStorage(root) {
+  await preflightTargets(root, [CONFIG_FILE, TEMP_FILE, ".gitignore"]);
+  const inGit = await assertUntracked(root);
+  try {
+    await lstat(join(root, TEMP_FILE));
+    throw new Error(`temporary credential file ${TEMP_FILE} already exists; inspect it before retrying`);
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+  }
+  const ignorePath = join(root, ".gitignore");
+  const current = (await readPackFile(ignorePath)) ?? "";
+  if (!current.endsWith(IGNORE_BLOCK)) {
+    await writeFile(ignorePath, `${current}${current && !current.endsWith("\n") ? "\n" : ""}${IGNORE_BLOCK}`, "utf8");
+  }
+  if (inGit) {
+    for (const path of [CONFIG_FILE, TEMP_FILE]) {
+      const ignored = await git(root, ["check-ignore", "--quiet", "--", path]);
+      if (ignored.code !== 0) throw new Error(`Git does not ignore ${path}; host credentials were not saved`);
+    }
+  }
+}
+
+/** The temporary file is ignored too; rename preserves the old config on failure. */
+export async function saveHostConfig(root, config) {
+  const saved = {
+    base: normalizeHostOrigin(config.base),
+    roomKey: validateHostRoomKey(config.roomKey),
+    hostToken: validateHostToken(config.hostToken),
+  };
+  await prepareHostStorage(root);
+  const temporary = join(root, TEMP_FILE);
+  let created = false;
+  try {
+    await writeFile(temporary, `${JSON.stringify(saved, null, 2)}\n`, { flag: "wx", mode: 0o600 });
+    created = true;
+    await preflightTargets(root, [CONFIG_FILE, TEMP_FILE]);
+    await rename(temporary, join(root, CONFIG_FILE));
+  } catch (err) {
+    if (created) await unlink(temporary).catch(() => {});
+    throw new Error(`could not save host credentials safely (${err.code ?? "storage changed"}); the server may already have created the room`);
+  }
+  return { saved: join(root, CONFIG_FILE), gitignored: true };
 }
