@@ -27,6 +27,7 @@ import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { validatePack, preflightTargets, readPackFile } from "./pack-files.mjs";
+import { normalizeHostOrigin, validateHostRoomKey, selectHostToken } from "./host-credentials.mjs";
 
 const DEFAULT_BASE =
   process.env.GRILL_WITH_ME_URL ?? "https://grill-with-me.vercel.app";
@@ -139,7 +140,9 @@ function parseRoomRef(raw) {
   const trimmed = raw.trim().replace(/[),.]+$/, "");
   const match = trimmed.match(/^https?:\/\/[^/]+(?:\/[^/]*)*?\/r\/([^/?#]+)/);
   if (match) {
-    return { key: match[1], base: new URL(trimmed).origin };
+    const url = new URL(trimmed);
+    if (url.username || url.password) fail("room URLs must not contain credentials");
+    return { key: match[1], base: url.origin };
   }
   if (/^https?:\/\//.test(trimmed)) {
     fail(`that URL has no room in it: ${trimmed}`, "expected .../r/<room-key>");
@@ -172,7 +175,9 @@ async function request(url, init) {
       body.errors?.join("\n  ") ??
       body.error ??
       `server said ${res.status} for ${url}`;
-    fail(detail, res.status === 404 ? "double-check the room key" : undefined);
+    const token = init?.headers?.authorization?.replace(/^Bearer /, "");
+    const safeDetail = token ? String(detail).replaceAll(token, "[redacted]") : detail;
+    fail(safeDetail, res.status === 404 ? "double-check the room key" : undefined);
   }
   return body;
 }
@@ -182,6 +187,7 @@ const getJson = (url) => request(url);
 const postJson = (url, body, headers = {}) =>
   request(url, {
     method: "POST",
+    redirect: "error",
     headers: { "content-type": "application/json", ...headers },
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
@@ -520,7 +526,7 @@ async function readRoomFile(path) {
 }
 
 async function cmdPublish(args) {
-  const base = args.base ?? DEFAULT_BASE;
+  const base = normalizeHostOrigin(args.base ?? DEFAULT_BASE);
   const root = process.cwd();
   const file = args.positional[0] ?? "grill-room.json";
   const raw = await readRoomFile(file);
@@ -555,9 +561,9 @@ ${dim("Changed the plan? npx grill-with-me republish grill-room.json")}
 async function cmdRepublish(args) {
   const root = process.cwd();
   const config = await readConfig(root);
-  const base = args.base ?? config.base ?? DEFAULT_BASE;
-  const key = parseRoomRef(args.key ?? args.positional[1]).key ?? config.roomKey;
-  const token = args.token ?? process.env.GRILL_WITH_ME_TOKEN ?? config.hostToken;
+  const ref = parseRoomRef(args.key ?? args.positional[1]);
+  const base = normalizeHostOrigin(args.base ?? ref.base ?? config.base ?? DEFAULT_BASE);
+  const key = ref.key ?? config.roomKey;
   const file = args.positional[0] ?? "grill-room.json";
 
   if (!key) {
@@ -566,6 +572,8 @@ async function cmdRepublish(args) {
       `pass --key <room-key>, or run this where ${CONFIG_FILE} lives`,
     );
   }
+  validateHostRoomKey(key);
+  const token = selectHostToken(config, base, key, args.token ?? process.env.GRILL_WITH_ME_TOKEN);
   if (!token) {
     fail(
       "no host token",
