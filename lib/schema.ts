@@ -96,11 +96,12 @@ function formatIssue(issue: z.ZodIssue): string {
  * a rejected one.
  */
 export function parseGrillRoom(raw: string): ParseResult {
-  if (raw.length > MAX_ROOM_JSON_BYTES) {
+  const bytes = new TextEncoder().encode(raw).byteLength;
+  if (bytes > MAX_ROOM_JSON_BYTES) {
     return {
       ok: false,
       errors: [
-        `file is ${raw.length} bytes; the limit is ${MAX_ROOM_JSON_BYTES}`,
+        `file is ${bytes} bytes; the limit is ${MAX_ROOM_JSON_BYTES}`,
       ],
     };
   }
