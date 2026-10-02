@@ -40,6 +40,21 @@ describe("storage configuration", () => {
     expect(getStore()).toBeInstanceOf(SupabaseStore);
   });
 
+  it("requires HTTPS in production and permits HTTP only for loopback development/test", () => {
+    const credentials = { SUPABASE_SERVICE_KEY: "private-key" };
+    for (const NODE_ENV of ["production", undefined, "staging"]) {
+      expect(() => storeConfig({ ...credentials, NODE_ENV, SUPABASE_URL: "http://127.0.0.1:54321" })).toThrow(StoreConfigurationError);
+    }
+    for (const NODE_ENV of ["development", "test"]) {
+      for (const host of ["127.0.0.1", "localhost", "[::1]"]) {
+        expect(storeConfig({ ...credentials, NODE_ENV, SUPABASE_URL: `http://${host}:54321` }).mode).toBe("supabase");
+      }
+      for (const host of ["remote.example", "localhost.example", "127.0.0.1.example", "192.168.1.1"]) {
+        expect(() => storeConfig({ ...credentials, NODE_ENV, SUPABASE_URL: `http://${host}:54321` })).toThrow(StoreConfigurationError);
+      }
+    }
+  });
+
   it("does not cache failed configuration, and shares an explicitly selected memory store", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("GRILL_STORE", "memory");

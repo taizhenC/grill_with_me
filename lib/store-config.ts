@@ -37,5 +37,13 @@ export function storeConfig(env: Record<string, string | undefined>): StoreConfi
   ) {
     throw new StoreConfigurationError("SUPABASE_URL must be an HTTP(S) URL without credentials, query, or fragment");
   }
+  const localDevelopment =
+    (env.NODE_ENV === "development" || env.NODE_ENV === "test") &&
+    ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname);
+  if (parsed.protocol !== "https:" && !localDevelopment) {
+    throw new StoreConfigurationError(
+      "SUPABASE_URL requires HTTPS; HTTP is allowed only for loopback development or tests",
+    );
+  }
   return { mode, url, serviceKey };
 }
