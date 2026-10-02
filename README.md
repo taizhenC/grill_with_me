@@ -17,6 +17,13 @@ hands out packs; your specs and your contract never leave your repo.
 
 ## Host — ten minutes, once
 
+The public beta is being prepared. On 2026-10-02, the default service and npm
+package both returned 404. Until publication is verified, use the source CLI or
+a locally packed archive with a running custom service; see
+[the release runbook](doc/beta-release-runbook.md). The `npx` examples below
+describe onboarding after publication. Package metadata currently selects the
+`beta` tag and supports Node 22.15+ within Node 22, or Node 24.
+
 ```bash
 npx grill-with-me host            # installs grill-host + merge-contract here
 ```
