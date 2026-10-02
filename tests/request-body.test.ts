@@ -90,6 +90,21 @@ describe("bounded request bodies", () => {
     expect(result.response.status).toBe(400);
   });
 
+  it("rejects a pre-aborted body even when stream chunks are already queued", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const body = new ReadableStream<Uint8Array>({
+      start(stream) { stream.enqueue(encode("queued")); stream.close(); },
+    });
+    const init: RequestInit & { duplex: "half" } = {
+      method: "POST", body, duplex: "half", signal: controller.signal,
+    };
+    const result = await readRequestText(new Request("http://test/body", init), 16);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.response.status).toBe(400);
+  });
+
   it("uses UTF-8 bytes in the shared browser/server room parser", () => {
     const oversized = "🌲".repeat(Math.floor(MAX_ROOM_JSON_BYTES / 4) + 1);
     expect(oversized.length).toBeLessThan(MAX_ROOM_JSON_BYTES);

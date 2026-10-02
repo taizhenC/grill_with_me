@@ -23,6 +23,10 @@ export async function readRequestText(
     ok: false,
     response: NextResponse.json({ errors: [message] }, { status }),
   });
+  if (request.signal.aborted) {
+    void request.body?.cancel().catch(() => {});
+    return reject("request body interrupted", 400);
+  }
   const tooLarge = `payload too large (limit ${maxBytes} bytes)`;
   const length = request.headers.get("content-length");
   if (length && /^\d+$/.test(length) && Number(length) > maxBytes) {
@@ -50,6 +54,7 @@ export async function readRequestText(
     let text = "";
     for (;;) {
       const { value, done } = await Promise.race([reader.read(), interrupted]);
+      if (request.signal.aborted) throw new BodyError("request body interrupted", 400);
       if (done) break;
       received += value.byteLength;
       if (received > maxBytes) throw new BodyError(tooLarge, 413);
