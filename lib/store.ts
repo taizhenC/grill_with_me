@@ -51,7 +51,7 @@ function expiry(): string {
 }
 
 function isExpired(stored: StoredRoom): boolean {
-  return new Date(stored.expiresAt).getTime() < Date.now();
+  return new Date(stored.expiresAt).getTime() <= Date.now();
 }
 
 /* ------------------------------------------------------------------ */
@@ -84,7 +84,12 @@ export class MemoryStore implements RoomStore {
     const stored = this.rooms.get(key);
     if (!stored || isExpired(stored)) throw new NotFoundError(key);
     if (stored.hostToken !== hostToken) throw new ForbiddenError();
-    stored.room = room;
+    stored.room = structuredClone(room);
+    stored.claims = Object.fromEntries(
+      Object.entries(stored.claims).filter(([slug]) =>
+        room.roles.some((role) => role.slug === slug),
+      ),
+    );
     stored.version += 1;
     return stored.version;
   }
@@ -154,30 +159,27 @@ export class SupabaseStore implements RoomStore {
   }
 
   async republish(key: string, hostToken: string, room: GrillRoom) {
-    const stored = await this.get(key);
-    if (!stored) throw new NotFoundError(key);
-    if (stored.hostToken !== hostToken) throw new ForbiddenError();
-    const next = stored.version + 1;
-    const { error } = await this.db
-      .from("rooms")
-      .update({ room, version: next })
-      .eq("key", key)
-      .eq("version", stored.version); // optimistic: concurrent republish loses
+    const { data, error } = await this.db.rpc("republish_room", {
+      p_key: key,
+      p_host_token: hostToken,
+      p_room: room,
+    });
+    if (error?.code === "PT404") throw new NotFoundError(key);
+    if (error?.code === "PT403") throw new ForbiddenError();
     if (error) throw new Error(`republish failed: ${error.message}`);
-    return next;
+    if (typeof data !== "number" || !Number.isInteger(data) || data < 2) {
+      throw new Error("republish failed: database did not return a committed version");
+    }
+    return data;
   }
 
   async claim(key: string, roleSlug: string, displayName: string) {
-    const stored = await this.get(key);
-    if (!stored) throw new NotFoundError(key);
-    if (!stored.room.roles.some((r) => r.slug === roleSlug)) {
-      throw new NotFoundError(`role ${roleSlug}`);
-    }
-    const claims = { ...stored.claims, [roleSlug]: displayName };
-    const { error } = await this.db
-      .from("rooms")
-      .update({ claims })
-      .eq("key", key);
+    const { error } = await this.db.rpc("claim_room", {
+      p_key: key,
+      p_role_slug: roleSlug,
+      p_display_name: displayName,
+    });
+    if (error?.code === "PT404") throw new NotFoundError(`room or role ${roleSlug}`);
     if (error) throw new Error(`claim failed: ${error.message}`);
   }
 }
