@@ -138,7 +138,8 @@ major version used by CI). Install the committed dependency versions:
 
 ```bash
 npm ci
-npm run dev        # in-memory store; no credentials needed
+cp .env.example .env.local  # explicit in-memory development mode
+npm run dev
 npm test           # vitest
 npm run typecheck
 ```
@@ -149,9 +150,15 @@ Against a dev server, point the CLI at it:
 node cli/grill.mjs publish examples/grill-room.json --base http://localhost:3000
 ```
 
-Production: set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY`, apply
-`supabase/migrations/0001_rooms.sql`, deploy to Vercel. Rooms expire after 30
-days. If you deploy your own copy, the commands the app prints carry
+Production: use `GRILL_STORE=supabase` (the default), set `SUPABASE_URL` and
+`SUPABASE_SERVICE_KEY`, apply every file in `supabase/migrations/` in order,
+then deploy to Vercel. Missing or partial credentials reject room API requests
+with HTTP 503 instead of creating temporary rooms. Builds need no secrets.
+`GRILL_STORE=memory` is accepted only in development or tests; production
+rejects it. Never expose the service key to a browser.
+`SUPABASE_URL` requires HTTPS; HTTP is permitted only for loopback endpoints
+in development or tests.
+Rooms expire after 30 days. If you deploy your own copy, the commands the app prints carry
 `--base` automatically.
 
 ## Release checks
@@ -175,3 +182,20 @@ command and package version, and tests valid and invalid spec input. The
 trace check ensures both pack-serving routes include all four skill files
 in the production bundle. Neither command publishes a package or deploys the
 app.
+
+Persistence checks run against a disposable PostgreSQL 17 database in CI.
+Run them locally with `GRILL_TEST_DATABASE_URL` pointing to an **empty** admin
+database named `grill_test` or `grill_test_*`, then `npm run test:db`. The
+fixture applies the real migrations, creates Supabase-style test roles, and
+checks contended claims, committed versions, expiry after lock waits, role
+removal, authorization, RPC privileges, and RLS. It removes its table and
+functions when finished; use a temporary database because the fixture roles
+remain in the cluster. The `pg` driver is a development dependency only.
+
+Claims for different roles survive concurrent updates; claims for the same
+role retain the existing last-write-wins behavior. Concurrent authorized
+republishes are serialized, each returns its actual committed version, and
+the last committed content wins. Removing a role also removes its claim.
+Apply migration `0002_atomic_room_mutations.sql` before deploying this server
+version. Vanilla PostgreSQL checks do not replace a deployment smoke test
+against the configured Supabase project's API and service credentials.

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getStore, NotFoundError } from "@/lib/store";
 import { readRequestText, MAX_CLAIM_JSON_BYTES } from "@/lib/request-body";
 import { isRoomKey } from "@/lib/keys";
+import { storageUnavailable } from "@/lib/store-response";
 
 const claimBody = z.object({
   role: z.string().min(1).max(40),
@@ -40,6 +41,8 @@ export async function POST(
   try {
     await getStore().claim(key, parsed.data.role, parsed.data.displayName);
   } catch (err) {
+    const unavailable = storageUnavailable(err);
+    if (unavailable) return unavailable;
     if (err instanceof NotFoundError) {
       return NextResponse.json(
         { error: `room or role not found` },

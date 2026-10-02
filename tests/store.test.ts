@@ -100,6 +100,35 @@ describe("MemoryStore", () => {
     );
   });
 
+  it("preserves independent concurrent claims and returns distinct committed versions", async () => {
+    const store = new MemoryStore();
+    const { key, hostToken } = await store.create(room());
+    await Promise.all([
+      store.claim(key, "frontend", "Alice"),
+      store.claim(key, "backend", "Bob"),
+    ]);
+    const versions = await Promise.all(Array.from({ length: 8 }, (_, i) =>
+      store.republish(key, hostToken, room(`revision ${i}`)),
+    ));
+    expect(versions).toEqual([2, 3, 4, 5, 6, 7, 8, 9]);
+    expect((await store.get(key))!.claims).toEqual({ frontend: "Alice", backend: "Bob" });
+    expect((await store.get(key))!.version).toBe(9);
+  });
+
+  it("removes claims for deleted roles while retaining surviving roles", async () => {
+    const store = new MemoryStore();
+    const { key, hostToken } = await store.create(room());
+    await store.claim(key, "frontend", "Alice");
+    await store.claim(key, "backend", "Bob");
+    const replacement = room();
+    replacement.roles = replacement.roles.filter((role) => role.slug === "frontend");
+    await store.republish(key, hostToken, replacement);
+    expect((await store.get(key))!.claims).toEqual({ frontend: "Alice" });
+    await expect(store.claim(key, "backend", "Bob")).rejects.toBeInstanceOf(NotFoundError);
+    replacement.project.name = "caller mutation";
+    expect((await store.get(key))!.room.project.name).toBe("Trailhead");
+  });
+
   it("expired rooms read as gone", async () => {
     const store = new MemoryStore();
     const { key } = await store.create(room());
@@ -109,6 +138,8 @@ describe("MemoryStore", () => {
     // @ts-expect-error - test reaches into private state
     store.rooms.get(key)!.expiresAt = new Date(Date.now() - 1000).toISOString();
     expect(await store.get(key)).toBeNull();
+    await expect(store.claim(key, "frontend", "Alice")).rejects.toBeInstanceOf(NotFoundError);
+    await expect(store.republish(key, "wrong", room())).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("get returns a copy — mutating it does not corrupt the store", async () => {
