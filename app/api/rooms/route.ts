@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { parseGrillRoom, MAX_ROOM_JSON_BYTES } from "@/lib/schema";
 import { getStore } from "@/lib/store";
 import { allowCreate, clientIp } from "@/lib/rate-limit";
+import { readRequestText } from "@/lib/request-body";
 
 /**
  * POST /api/rooms — publish a room.
@@ -19,16 +20,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const length = Number(request.headers.get("content-length") ?? 0);
-  if (length > MAX_ROOM_JSON_BYTES) {
-    return NextResponse.json(
-      { errors: [`payload too large (limit ${MAX_ROOM_JSON_BYTES} bytes)`] },
-      { status: 413 },
-    );
-  }
-
-  const raw = await request.text();
-  const parsed = parseGrillRoom(raw);
+  const body = await readRequestText(request, MAX_ROOM_JSON_BYTES);
+  if (!body.ok) return body.response;
+  const parsed = parseGrillRoom(body.text);
   if (!parsed.ok) {
     return NextResponse.json({ errors: parsed.errors }, { status: 400 });
   }

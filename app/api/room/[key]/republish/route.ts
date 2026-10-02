@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { parseGrillRoom } from "@/lib/schema";
+import { parseGrillRoom, MAX_ROOM_JSON_BYTES } from "@/lib/schema";
 import { getStore, NotFoundError, ForbiddenError } from "@/lib/store";
+import { readRequestText } from "@/lib/request-body";
 
 /**
  * POST /api/room/[key]/republish — host swaps the room content, version bumps.
@@ -23,7 +24,9 @@ export async function POST(
     );
   }
 
-  const parsed = parseGrillRoom(await request.text());
+  const body = await readRequestText(request, MAX_ROOM_JSON_BYTES);
+  if (!body.ok) return body.response;
+  const parsed = parseGrillRoom(body.text);
   if (!parsed.ok) {
     return NextResponse.json({ errors: parsed.errors }, { status: 400 });
   }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getStore, NotFoundError } from "@/lib/store";
+import { readRequestText, MAX_CLAIM_JSON_BYTES } from "@/lib/request-body";
 
 const claimBody = z.object({
   role: z.string().min(1).max(40),
@@ -18,9 +19,11 @@ export async function POST(
 ) {
   const { key } = await params;
 
+  const raw = await readRequestText(request, MAX_CLAIM_JSON_BYTES);
+  if (!raw.ok) return raw.response;
   let body: unknown;
   try {
-    body = await request.json();
+    body = JSON.parse(raw.text);
   } catch {
     return NextResponse.json({ error: "body must be JSON" }, { status: 400 });
   }
