@@ -50,7 +50,7 @@ try {
   ));
   assert.equal(packed.length, 1, "npm pack must produce one CLI archive");
   const archive = packed[0];
-  for (const path of ["package.json", "grill.mjs", "pack-files.mjs", "room-key.mjs"]) {
+  for (const path of ["package.json", "grill.mjs", "pack-files.mjs", "pack-install.mjs", "room-key.mjs", "host-credentials.mjs"]) {
     assert.ok(archive.files.some((file) => file.path === path), `Archive is missing ${path}`);
   }
 

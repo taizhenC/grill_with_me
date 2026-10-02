@@ -42,7 +42,7 @@ publishing; remove exposed credentials from tracking and rotate them first.
 Saved tokens work only for their original normalized origin and room. Changing
 `--base` or `--key` requires an explicit `--token` or `GRILL_WITH_ME_TOKEN` for
 that destination. Explicit republish tokens apply to that invocation and are
-not saved. Host operations require an HTTPS origin; HTTP is allowed for
+not saved. Publishing and republishing require an HTTPS origin; HTTP is allowed for
 `localhost`, IPv4 loopback, and `::1` development servers. Redirects are refused.
 
 When every spec is committed, tell your agent: *run the merge-contract skill*.
@@ -71,17 +71,41 @@ Not sure the spec came out right? `npx grill-with-me check-spec` validates it
 against the exact structure `merge-contract` parses — thirty seconds after the
 grill, instead of hours later on your host's machine.
 
-Re-running `join` is safe: it updates the pack in place, keeps your own
-`AGENTS.md` content, and never touches your spec.
+Re-running `join` or `host` updates files whose contents still match the last
+successful installation. Local edits and deletions stop the whole installation
+before it writes anything; inspect or back up those files before choosing
+`--force`. Personal text outside the owned `AGENTS.md` fence is preserved exactly.
+Malformed or duplicate fences and invalid local UTF-8 stop installation even
+with `--force`. Specs and contracts are never installation targets.
+
+The member receipt, `grill/.room`, records the normalized server origin, room,
+role, version, and installed content hashes. A saved role is reused only for
+that same origin and room. Host skills use a separate origin-bound receipt,
+`.grill-with-me-host.json`. Old receipts without origin/hashes require an explicit
+role; existing files are adopted only if they match the requested pack exactly,
+otherwise replacement requires `--force`.
+
+Installation adds receipt and temporary-file rules to `.gitignore`, and works
+without Git installed. Ignore rules do not untrack an already committed receipt
+or override a nested `.gitignore`: check `git ls-files grill/.room` and
+`git check-ignore --no-index grill/.room` when migrating an existing checkout.
+After backing up a tracked receipt, use `git rm --cached grill/.room` and commit
+that removal to keep future role selection local. Shared role payload files such
+as `grill/MY-ROLE.md` still need the later local-role layout upgrade.
 
 `join` and `host` validate the complete downloaded file set before installation.
 Only the standard pack paths are accepted, with at most 256 KiB of UTF-8 content
 per file and 1 MiB total. They check all destinations before writing and reject
 symlinks, junctions, hard-linked files, and incompatible directories inside the
 checkout. `--force` cannot bypass these checks; `--dry-run` previews either
-installation without writing. Keep the checkout idle during installation:
-preflight does not prevent another process from changing paths concurrently or
-roll back an installation interrupted by an I/O failure.
+installation without writing or recording claims. Each file is replaced by a
+same-directory atomic rename, and the completed receipt is written last.
+After an I/O failure, resolve the reported filesystem problem and retry the
+same pack: already updated files are recognized, and remaining old files can
+finish. A changed payload that conflicts with a partial update stops for
+inspection. A process killed mid-write can leave `*.grill-tmp`; inspect and
+remove that temporary file before retrying. Keep the checkout idle: this is not
+a multi-file transaction or protection against concurrent local path changes.
 
 ## During the build — anyone, repeatedly
 
@@ -100,7 +124,7 @@ AGENTS.md                                  # a fenced block; your own content is
 grill/
   PROJECT.md                               # shared: the brief from the host grill
   MY-ROLE.md                               # yours: scope, and the grill itself
-  .room                                    # room key, role, pack version
+  .room                                    # ignored local origin/room/role/version + hashes
 .claude/
   commands/grill-my-role.md                # so /grill-my-role just works
   skills/check-contract/SKILL.md
