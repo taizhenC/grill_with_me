@@ -103,8 +103,11 @@ Useful flags: `--role <slug>`, `--name <name>`, `--dry-run`, `--force`,
 
 ## Running the web app
 
+Use Node.js 24 LTS with npm for development (`.node-version` records the
+major version used by CI). Install the committed dependency versions:
+
 ```bash
-npm install
+npm ci
 npm run dev        # in-memory store; no credentials needed
 npm test           # vitest
 npm run typecheck
@@ -120,3 +123,25 @@ Production: set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY`, apply
 `supabase/migrations/0001_rooms.sql`, deploy to Vercel. Rooms expire after 30
 days. If you deploy your own copy, the commands the app prints carry
 `--base` automatically.
+
+## Release checks
+
+CI runs the full test suite, typecheck, and production build on Linux with
+Node.js 24. It also runs the CLI tests and installs the actual npm tarball on
+Windows and Linux with Node.js 22 and 24. These checks need no API keys or
+deployment credentials. Dependency security updates are reviewed separately
+from this functional baseline.
+
+Run the distribution checks locally after `npm ci`:
+
+```bash
+node scripts/verify-cli-package.mjs
+npm run build
+node scripts/verify-skill-traces.mjs
+```
+
+The package check uses a temporary installation, verifies the installed
+command and package version, and tests valid and invalid spec input. The
+trace check ensures both pack-serving routes include all four skill files
+in the production bundle. Neither command publishes a package or deploys the
+app.
