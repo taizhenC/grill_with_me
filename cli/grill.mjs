@@ -4,6 +4,7 @@
  *
  *   join <key|url>     member: fetch your role's pack into this repo
  *   check-spec         member: is the spec you just wrote well-formed?
+ *   merge-preflight    host: validate the roster and every role spec before merge
  *   host               host:   install the host-side skills into this repo
  *   publish <file>     host:   publish grill-room.json, get the room link
  *   republish [file]   host:   swap the room content, bump the version
@@ -26,6 +27,8 @@ import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { isRoomKey } from "./room-key.mjs";
+import { validateSpec } from "./spec-format.mjs";
+import { preflightMerge } from "./merge-preflight.mjs";
 import { validatePack, preflightTargets, readPackFile } from "./pack-files.mjs";
 import {
   CONFIG_FILE, normalizeHostOrigin, validateHostRoomKey, selectHostToken,
@@ -88,6 +91,7 @@ ${bold("If a teammate sent you a link or a room key:")}
     --no-claim       don't tell the host's board you took the role
     --force          overwrite pack files this repo already has
   npx grill-with-me check-spec              is the spec you just wrote well-formed?
+  npx grill-with-me merge-preflight [file]   validate all roles before merging
 
 ${bold("If you are the host:")}
   npx grill-with-me host                    install grill-host + merge-contract here
@@ -600,49 +604,6 @@ ${bold(summary.project.name)} ${dim(`· room ${summary.key} · pack v${summary.v
 /* ------------------------------------------------------------------ */
 
 /**
- * The five headings merge-contract parses. Must match SPEC_HEADINGS in
- * lib/spec-format.ts — tests/cli.test.ts asserts they still agree.
- */
-const SPEC_HEADINGS = [
-  "## Scope",
-  "## What I own",
-  "## What I need from other roles",
-  "## Decisions made",
-  "## Still unclear",
-];
-
-/**
- * Sections must appear in order, because merge-contract parses by slicing
- * between headings.
- */
-function validateSpec(markdown) {
-  const missing = [];
-  const thin = [];
-  let cursor = 0;
-  const found = [];
-  for (const heading of SPEC_HEADINGS) {
-    const at = markdown.startsWith(heading) && cursor === 0
-      ? 0
-      : markdown.indexOf(`\n${heading}`, cursor);
-    if (at === -1) {
-      missing.push(heading);
-      continue;
-    }
-    found.push({ heading, at });
-    cursor = at + heading.length + 1;
-  }
-  for (let i = 0; i < found.length; i++) {
-    const start = found[i].at + found[i].heading.length;
-    const end = i + 1 < found.length ? found[i + 1].at : markdown.length;
-    // Low bar on purpose: one real sentence passes, a stub word does not.
-    if (markdown.slice(start, end).trim().length < 12) {
-      thin.push(found[i].heading);
-    }
-  }
-  return { missing, thin };
-}
-
-/**
  * The member's whole contribution is one file, and nothing tells them it came
  * out right until the host merges — hours later, when it is the host's
  * problem. This is that feedback, thirty seconds after the grill, on their
@@ -677,12 +638,12 @@ async function cmdCheckSpec(args) {
       bad++;
       continue;
     }
-    const { missing, thin } = validateSpec(markdown);
-    if (missing.length > 0) {
+    const { ok, errors, thin } = validateSpec(markdown);
+    if (!ok) {
       bad++;
       console.log(`  ${red("✗")} ${name}`);
       console.log(
-        dim(`      missing or out of order: ${missing.join(", ")}`),
+        dim(`      ${errors.join("\n      ")}`),
       );
       console.log(
         dim("      ask your agent to rewrite it with all five headings, in order"),
@@ -709,6 +670,11 @@ async function cmdCheckSpec(args) {
 const COMMANDS = {
   join: cmdJoin,
   "check-spec": cmdCheckSpec,
+  "merge-preflight": async (args) => {
+    const result = await preflightMerge(process.cwd(), args.positional[0]);
+    console.log(JSON.stringify(result, null, 2));
+    if (!result.ok) process.exitCode = 1;
+  },
   host: cmdHost,
   publish: cmdPublish,
   republish: cmdRepublish,

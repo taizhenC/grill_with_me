@@ -104,8 +104,9 @@ to me every few questions so I can correct drift early.
 
 ## When I say I'm done
 
-Write \`${specPath(role.slug)}\` containing EXACTLY these five headings, in
-this order, even if a section is empty:
+Write \`${specPath(role.slug)}\` containing EXACTLY these five headings once
+each, in this order, outside code fences. Individual sections may be empty;
+a spec empty under every heading is invalid:
 
 ${SPEC_HEADINGS.join("\n")}
 
@@ -115,6 +116,11 @@ and response shapes, name tables and columns with types, name files by path.
 \`{ trails: { id: string; shadeScore: number }[] }\` is what the contract
 needs. Do not invent agreements I did not make — anything not yet agreed
 belongs under "Still unclear".
+
+Run \`npx grill-with-me check-spec ${specPath(role.slug)}\` after writing it.
+If validation fails, correct the structure or report the missing decisions
+before telling me to commit. Surface thin-section warnings; never invent
+agreements just to make a section longer.
 `;
 }
 

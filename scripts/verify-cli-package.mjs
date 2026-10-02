@@ -70,7 +70,7 @@ try {
   const command = ["exec", "--offline", "--no", "--", "grill-with-me"];
   assert.equal(runNpm([...command, "--version"], consumer), metadata.version);
   const help = runNpm([...command, "--help"], consumer);
-  for (const name of ["join", "host", "publish", "check-spec"]) {
+  for (const name of ["join", "host", "publish", "check-spec", "merge-preflight"]) {
     assert.ok(help.includes(name), `Installed CLI help is missing ${name}`);
   }
 
@@ -82,7 +82,18 @@ try {
   runNpm([...command, "check-spec", spec], consumer);
   await writeFile(spec, "## Scope\n\nMissing the remaining required sections.\n");
   runNpm([...command, "check-spec", spec], consumer, 1);
-  console.log(`Installed CLI ${metadata.version}: archive, command, help, and spec checks passed.`);
+  await writeFile(join(consumer, "grill-room.json"), JSON.stringify({
+    schemaVersion: 1,
+    project: { name: "Package smoke", idea: "Check the actual merge gate.", mode: "side_project" },
+    roles: [{ slug: "backend", name: "Backend", description: "Packaged preflight." }],
+  }));
+  await mkdir(join(consumer, "grill"));
+  const roleSpec = join(consumer, "grill/backend-spec.md");
+  await writeFile(roleSpec, headings.map((heading) => `## ${heading}\n\nConcrete agreement for this section.\n`).join("\n"));
+  assert.equal(JSON.parse(runNpm([...command, "merge-preflight"], consumer)).ok, true);
+  await writeFile(roleSpec, "## Scope\n\nMissing sections.\n");
+  assert.equal(JSON.parse(runNpm([...command, "merge-preflight"], consumer, 1)).ok, false);
+  console.log(`Installed CLI ${metadata.version}: archive, command, help, spec checks, and merge gate passed.`);
 } finally {
   // Only remove the temporary directory created by this script, never a
   // checkout or an arbitrary path supplied in package metadata.

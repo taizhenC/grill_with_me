@@ -9,7 +9,25 @@ line. Precision beats prose everywhere in this task.
 
 ## Step 1 — collect and validate the specs
 
-Read `grill/PROJECT.md` and every `grill/*-spec.md` in the repo.
+Keep the host's current `grill-room.json` in this checkout. Run:
+
+```bash
+npx grill-with-me merge-preflight grill-room.json
+```
+
+This read-only gate validates project context and the expected role roster,
+then checks every required `grill/<role>-spec.md`. It returns JSON containing
+`manifest.project`, `manifest.roles`, the exact `specs` file list, and warnings.
+Use that project context and role roster, even if this host has no
+`grill/PROJECT.md` or a teammate's personal pack. Read only the listed role
+specs after the gate passes. A member may own more than one role; each role
+still needs its separate spec file.
+
+If the command exits nonzero, is unavailable, or reports `ok: false`, STOP and
+report its errors. Do not write or replace `grill/CONTRACT.md`,
+`grill/contract.ts`, or amendment history. Ask for missing role specs or a
+corrected host input. Never skip the gate or infer a missing role from whoever
+happened to commit a spec. Run it again after any input changes.
 
 Each spec MUST contain exactly these five headings, in this order:
 
@@ -19,7 +37,13 @@ Each spec MUST contain exactly these five headings, in this order:
 ## Decisions made
 ## Still unclear
 
-If a spec is missing headings or is empty under all of them, STOP and report
+Headings must be exact lines outside backtick/tilde code fences and HTML
+comments. Trailing whitespace and up to three leading spaces are accepted;
+duplicate, suffixed, missing, extra H2, or out-of-order headings fail. CRLF
+and LF inputs use the same policy. A spec empty under all five headings fails;
+individual empty or short sections are thin warnings when some content exists.
+
+If a spec is malformed or is empty under all of them, STOP and report
 the file by name — do not guess at its content, do not merge around it
 silently. Tell the user which role needs to re-run their grill. A thin spec
 (headings present but nearly empty) is merged, but flag it in the output
@@ -76,7 +100,7 @@ does not appear in a spec.
 
 ## Step 4 — emit grill/contract.ts on TypeScript stacks
 
-If `grill/PROJECT.md` names TypeScript (or the repo has a tsconfig), also
+If `manifest.project.knownStack` names TypeScript (or the repo has a tsconfig), also
 write `grill/contract.ts`: the same agreements as importable types.
 
 - One exported interface per request/response shape and per table row

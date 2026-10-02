@@ -183,7 +183,7 @@ describe("validateSpec", () => {
   ].join("\n");
 
   it("accepts a spec with all headings in order", () => {
-    expect(validateSpec(wellFormed)).toEqual({ ok: true });
+    expect(validateSpec(wellFormed).ok).toBe(true);
   });
 
   it("names every missing heading", () => {
