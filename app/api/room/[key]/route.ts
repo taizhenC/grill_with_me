@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getStore, toPublic } from "@/lib/store";
+import { storageUnavailable } from "@/lib/store-response";
 import { renderPack } from "@/lib/pack";
 
 /**
@@ -14,7 +15,14 @@ export async function GET(
   { params }: { params: Promise<{ key: string }> },
 ) {
   const { key } = await params;
-  const stored = await getStore().get(key);
+  let stored;
+  try {
+    stored = await getStore().get(key);
+  } catch (err) {
+    const unavailable = storageUnavailable(err);
+    if (unavailable) return unavailable;
+    throw err;
+  }
   if (!stored) {
     return NextResponse.json(
       { error: `no room "${key}" — it may have expired` },

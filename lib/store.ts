@@ -1,16 +1,17 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { GrillRoom } from "./schema";
 import { generateRoomKey, generateHostToken } from "./keys";
+import { storeConfig } from "./store-config";
 
 /**
  * Persistence for rooms. Two implementations behind one interface:
  *
  * - SupabaseStore — production. All access goes through the service key on
  *   the server (decision: no client-side DB, no RLS to fight in v1).
- * - MemoryStore — tests and credential-less local dev. Same semantics.
+ * - MemoryStore — explicitly selected development/tests. Same semantics.
  *
- * Chosen once at startup: Supabase when SUPABASE_URL + SUPABASE_SERVICE_KEY
- * are set, memory otherwise.
+ * Selected lazily on first use. Supabase is required by default; local
+ * memory needs GRILL_STORE=memory and NODE_ENV=development or test.
  */
 
 export const ROOM_TTL_DAYS = 30;
@@ -198,12 +199,11 @@ type GlobalWithStore = { [GLOBAL_KEY]?: RoomStore };
 export function getStore(): RoomStore {
   const g = globalThis as GlobalWithStore;
   if (g[GLOBAL_KEY]) return g[GLOBAL_KEY];
-  const url = process.env.SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+  const config = storeConfig(process.env);
   g[GLOBAL_KEY] =
-    url && serviceKey
+    config.mode === "supabase"
       ? new SupabaseStore(
-          createClient(url, serviceKey, { auth: { persistSession: false } }),
+          createClient(config.url, config.serviceKey, { auth: { persistSession: false } }),
         )
       : new MemoryStore();
   return g[GLOBAL_KEY];

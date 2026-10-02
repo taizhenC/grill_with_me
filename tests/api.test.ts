@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { MemoryStore, setStore, getStore } from "@/lib/store";
 import { resetRateLimit } from "@/lib/rate-limit";
 import { ROOM_SCHEMA_VERSION } from "@/lib/schema";
@@ -41,6 +41,31 @@ async function publish(): Promise<{ key: string; hostToken: string }> {
 beforeEach(() => {
   setStore(new MemoryStore());
   resetRateLimit();
+});
+
+afterEach(() => vi.unstubAllEnvs());
+
+describe("unconfigured production storage", () => {
+  it("returns HTTP 503 for room APIs rather than creating temporary state", async () => {
+    setStore(null);
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("GRILL_STORE", "supabase");
+    vi.stubEnv("SUPABASE_URL", "https://test.supabase.co");
+    vi.stubEnv("SUPABASE_SERVICE_KEY", "");
+    const responses = [
+      await createRoom(post("http://test/api/rooms", roomJson())),
+      await getRoom(new Request("http://test/api/room/missing"), params("missing")),
+      await claimRole(post("http://test/api/room/missing/claim", JSON.stringify({ role: "frontend", displayName: "Alice" })), params("missing")),
+      await republish(post("http://test/api/room/missing/republish", roomJson(), { authorization: "Bearer private-token" }), params("missing")),
+    ];
+    for (const response of responses) {
+      expect(response.status).toBe(503);
+      const body = await response.text();
+      expect(body).toContain("room storage is unavailable");
+      expect(body).not.toContain("supabase.co");
+      expect(body).not.toContain("private-token");
+    }
+  });
 });
 
 describe("POST /api/rooms", () => {

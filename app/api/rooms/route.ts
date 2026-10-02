@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { parseGrillRoom, MAX_ROOM_JSON_BYTES } from "@/lib/schema";
 import { getStore } from "@/lib/store";
+import { storageUnavailable } from "@/lib/store-response";
 import { allowCreate, clientIp } from "@/lib/rate-limit";
 
 /**
@@ -33,9 +34,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ errors: parsed.errors }, { status: 400 });
   }
 
-  const { key, hostToken } = await getStore().create(parsed.room);
-  return NextResponse.json(
-    { key, hostToken, url: `/r/${key}` },
-    { status: 201 },
-  );
+  try {
+    const { key, hostToken } = await getStore().create(parsed.room);
+    return NextResponse.json(
+      { key, hostToken, url: `/r/${key}` },
+      { status: 201 },
+    );
+  } catch (err) {
+    const unavailable = storageUnavailable(err);
+    if (unavailable) return unavailable;
+    throw err;
+  }
 }

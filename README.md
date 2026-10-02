@@ -117,7 +117,8 @@ major version used by CI). Install the committed dependency versions:
 
 ```bash
 npm ci
-npm run dev        # in-memory store; no credentials needed
+cp .env.example .env.local  # explicit in-memory development mode
+npm run dev
 npm test           # vitest
 npm run typecheck
 ```
@@ -128,8 +129,12 @@ Against a dev server, point the CLI at it:
 node cli/grill.mjs publish examples/grill-room.json --base http://localhost:3000
 ```
 
-Production: set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY`, apply
-`supabase/migrations/0001_rooms.sql`, deploy to Vercel. Rooms expire after 30
+Production: use `GRILL_STORE=supabase` (the default), set `SUPABASE_URL` and
+`SUPABASE_SERVICE_KEY`, apply every file in `supabase/migrations/` in order,
+then deploy to Vercel. Missing or partial credentials reject room API requests
+with HTTP 503 instead of creating temporary rooms. Builds need no secrets.
+`GRILL_STORE=memory` is accepted only in development or tests; production
+rejects it. Never expose the service key to a browser. Rooms expire after 30
 days. If you deploy your own copy, the commands the app prints carry
 `--base` automatically.
 
