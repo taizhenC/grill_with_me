@@ -12,21 +12,21 @@ import {
 
 describe("printed commands", () => {
   it("stay bare on the canonical deployment", () => {
-    expect(joinCommand("pearl-summit-88", CLI_DEFAULT_BASE)).toBe(
-      "npx grill-with-me join pearl-summit-88",
+    expect(joinCommand("r_0123456789abcdef0123456789abcdef", CLI_DEFAULT_BASE)).toBe(
+      "npx grill-with-me join r_0123456789abcdef0123456789abcdef",
     );
     expect(baseFlag(CLI_DEFAULT_BASE)).toBe("");
   });
 
   it("carry --base everywhere else, so a fork or dev server still works", () => {
     const origin = "http://localhost:3000";
-    expect(joinCommand("pearl-summit-88", origin, "backend")).toBe(
-      "npx grill-with-me join pearl-summit-88 --role backend --base http://localhost:3000",
+    expect(joinCommand("r_0123456789abcdef0123456789abcdef", origin, "backend")).toBe(
+      "npx grill-with-me join r_0123456789abcdef0123456789abcdef --role backend --base http://localhost:3000",
     );
     for (const command of [
       publishCommand(origin),
       republishCommand(origin),
-      statusCommand("pearl-summit-88", origin),
+      statusCommand("r_0123456789abcdef0123456789abcdef", origin),
     ]) {
       expect(command).toContain("--base http://localhost:3000");
     }

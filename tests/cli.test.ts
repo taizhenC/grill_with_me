@@ -36,7 +36,7 @@ const ROOM_JSON = JSON.stringify({
   ],
 });
 
-const ROOM_KEY = "pearl-summit-88";
+const ROOM_KEY = "r_0123456789abcdef0123456789abcdef";
 
 function parsed(): GrillRoom {
   const result = parseGrillRoom(ROOM_JSON);
@@ -118,6 +118,13 @@ beforeAll(async () => {
         files: renderPack(parsed(), role, ROOM_KEY, packVersion),
       });
     }
+    if (req.method === "GET" && url.pathname === "/api/room/pearl-summit-88") {
+      const role = url.searchParams.get("role");
+      return send(200, {
+        ...summary(), key: "pearl-summit-88", role,
+        ...(role ? { files: renderPack(parsed(), role, "pearl-summit-88", packVersion) } : {}),
+      });
+    }
     return send(404, { error: `no room "${url.pathname.split("/").pop()}"` });
   });
 
@@ -157,6 +164,22 @@ async function run(args: string[], cwd: string) {
 }
 
 const read = (dir: string, path: string) => readFile(join(dir, path), "utf8");
+
+describe("room capability parsing", () => {
+  it("joins existing legacy room links", async () => {
+    const dir = await repo();
+    const result = await run(["join", `${base}/r/pearl-summit-88`, "--role", "backend", "--no-claim"], dir);
+    expect(result.code).toBe(0);
+    expect(JSON.parse(await read(dir, "grill/.room")).roomKey).toBe("pearl-summit-88");
+  });
+
+  it.each(["invalid-key", "r_too-short", "pearl-summit-88/host", "r_0123456789abcdef0123456789abcdeG"])("rejects malformed references before network access: %s", async (key) => {
+    const result = await run(["status", key, "--base", "http://127.0.0.1:1"], await repo());
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("invalid room key");
+    expect(result.stderr).not.toContain("could not reach");
+  });
+});
 
 describe("downloaded pack validation", () => {
   const malformed: { name: string; change: (files: PackFile[]) => unknown }[] = [

@@ -46,6 +46,14 @@ your agent: *read `grill/MY-ROLE.md` and follow it*. Answer the questions;
 commit the spec it writes. Nothing to install, no browser needed after the
 link.
 
+Room links are bearer access: anyone with the link can read the brief, download
+packs, and record role claims. New room keys are `r_` followed by 32 lowercase
+hexadecimal characters, generated from 128 random bits. Share the full link.
+Existing word-word-number links remain valid until their original 30-day expiry;
+republishing does not extend that expiry or strengthen an old key. To replace a
+legacy link, publish a new room and share its new link. New rooms have no legacy
+alias. Room pages and APIs send no-index, no-referrer, and private no-store headers.
+
 Not sure the spec came out right? `npx grill-with-me check-spec` validates it
 against the exact structure `merge-contract` parses — thirty seconds after the
 grill, instead of hours later on your host's machine.

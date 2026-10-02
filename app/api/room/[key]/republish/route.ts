@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { parseGrillRoom, MAX_ROOM_JSON_BYTES } from "@/lib/schema";
 import { getStore, NotFoundError, ForbiddenError } from "@/lib/store";
 import { readRequestText } from "@/lib/request-body";
+import { isRoomKey } from "@/lib/keys";
 
 /**
  * POST /api/room/[key]/republish — host swaps the room content, version bumps.
@@ -14,6 +15,7 @@ export async function POST(
   { params }: { params: Promise<{ key: string }> },
 ) {
   const { key } = await params;
+  if (!isRoomKey(key)) return NextResponse.json({ error: "room not found" }, { status: 404 });
 
   const auth = request.headers.get("authorization") ?? "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
