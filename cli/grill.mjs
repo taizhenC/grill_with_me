@@ -4,6 +4,7 @@
  *
  *   join <key|url>     member: fetch your role's pack into this repo
  *   check-spec         member: is the spec you just wrote well-formed?
+ *   merge-preflight    host: validate the roster and every role spec before merge
  *   host               host:   install the host-side skills into this repo
  *   publish <file>     host:   publish grill-room.json, get the room link
  *   republish [file]   host:   swap the room content, bump the version
@@ -27,6 +28,7 @@ import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { isRoomKey } from "./room-key.mjs";
 import { validateSpec } from "./spec-format.mjs";
+import { preflightMerge } from "./merge-preflight.mjs";
 import { validatePack, preflightTargets, readPackFile } from "./pack-files.mjs";
 import {
   CONFIG_FILE, normalizeHostOrigin, validateHostRoomKey, selectHostToken,
@@ -89,6 +91,7 @@ ${bold("If a teammate sent you a link or a room key:")}
     --no-claim       don't tell the host's board you took the role
     --force          overwrite pack files this repo already has
   npx grill-with-me check-spec              is the spec you just wrote well-formed?
+  npx grill-with-me merge-preflight [file]   validate all roles before merging
 
 ${bold("If you are the host:")}
   npx grill-with-me host                    install grill-host + merge-contract here
@@ -667,6 +670,11 @@ async function cmdCheckSpec(args) {
 const COMMANDS = {
   join: cmdJoin,
   "check-spec": cmdCheckSpec,
+  "merge-preflight": async (args) => {
+    const result = await preflightMerge(process.cwd(), args.positional[0]);
+    console.log(JSON.stringify(result, null, 2));
+    if (!result.ok) process.exitCode = 1;
+  },
   host: cmdHost,
   publish: cmdPublish,
   republish: cmdRepublish,

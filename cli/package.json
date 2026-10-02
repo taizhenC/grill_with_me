@@ -6,7 +6,7 @@
     "grill-with-me": "./grill.mjs"
   },
   "type": "module",
-  "files": ["grill.mjs", "pack-files.mjs", "room-key.mjs", "host-credentials.mjs", "spec-format.mjs"],
+  "files": ["grill.mjs", "pack-files.mjs", "room-key.mjs", "host-credentials.mjs", "spec-format.mjs", "merge-input.mjs", "merge-preflight.mjs"],
   "engines": {
     "node": ">=18"
   },

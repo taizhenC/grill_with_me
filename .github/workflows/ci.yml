@@ -79,5 +79,5 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - run: npm test -- tests/cli.test.ts tests/spec-format.test.ts
+      - run: npm test -- tests/cli tests/spec-format.test.ts tests/merge-preflight.test.ts
       - run: node scripts/verify-cli-package.mjs
