@@ -15,18 +15,20 @@
  */
 
 import {
-  writeFile,
   readFile,
   readdir,
-  mkdir,
   realpath,
 } from "node:fs/promises";
-import { dirname, join, resolve, relative, isAbsolute } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { isRoomKey } from "./room-key.mjs";
-import { validatePack, preflightTargets, readPackFile } from "./pack-files.mjs";
+import { validatePack } from "./pack-files.mjs";
+import {
+  normalizePackOrigin, readInstallReceipt, receiptMatches,
+  validateMemberIdentity, planInstall, executeInstall,
+} from "./pack-install.mjs";
 import {
   CONFIG_FILE, normalizeHostOrigin, validateHostRoomKey, selectHostToken,
   readHostConfig as readConfig, prepareHostStorage, saveHostConfig as saveConfig,
@@ -34,10 +36,6 @@ import {
 
 const DEFAULT_BASE =
   process.env.GRILL_WITH_ME_URL ?? "https://grill-with-me.vercel.app";
-
-/** Must match AGENTS_BLOCK_START/END in lib/pack.ts. */
-const AGENTS_START = "<!-- grill-with-me:start -->";
-const AGENTS_END = "<!-- grill-with-me:end -->";
 
 const GRILL_COMMAND = "grill-my-role";
 
@@ -198,49 +196,12 @@ const postJson = (url, body, headers = {}) =>
 /* ------------------------------------------------------------------ */
 /* files                                                               */
 
-/** Refuse paths that would escape the current directory. */
-function safeTarget(root, packPath) {
-  const target = resolve(root, packPath);
-  const rel = relative(root, target);
-  if (isAbsolute(rel) || rel.startsWith("..")) {
-    fail(`pack contains an unsafe path: ${packPath}`);
-  }
-  return target;
-}
-
 async function readIfExists(path) {
   try {
     return await readFile(path, "utf8");
   } catch {
     return null;
   }
-}
-
-async function writeInto(root, file) {
-  const target = safeTarget(root, file.path);
-  await preflightTargets(root, [file.path]);
-  await mkdir(dirname(target), { recursive: true });
-  await preflightTargets(root, [file.path]);
-  await writeFile(target, file.content, "utf8");
-}
-
-/**
- * AGENTS.md may already belong to the team. Ours is a fenced block inside
- * it, so joining adds to their file and re-joining updates only our part —
- * never the reverse of either.
- */
-function mergeAgentsMd(existing, incoming) {
-  if (existing === null) return incoming;
-  const start = existing.indexOf(AGENTS_START);
-  const end = existing.indexOf(AGENTS_END);
-  if (start !== -1 && end > start) {
-    return (
-      existing.slice(0, start) +
-      incoming.trim() +
-      existing.slice(end + AGENTS_END.length)
-    );
-  }
-  return `${existing.trimEnd()}\n\n${incoming}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -273,46 +234,16 @@ async function pickRole(summary) {
 /* ------------------------------------------------------------------ */
 /* join                                                                */
 
-/**
- * Decide what writing this pack would do to the repo, before doing any of
- * it. The rule that matters: files are only overwritten when grill/.room
- * says this checkout already belongs to this room — i.e. the host
- * republished and you are pulling the update. Anything else needs --force,
- * because a stranger's pack silently overwriting your files is the kind of
- * thing that makes a team distrust a tool at minute 0.
- */
-async function planWrites(root, files, stamp, roomKey, force) {
-  const plan = [];
-  const sameRoom = stamp?.roomKey === roomKey;
-  for (const file of files) {
-    const target = safeTarget(root, file.path);
-    const current = await readPackFile(target);
-    let content = file.content;
-    if (file.path === "AGENTS.md") {
-      content = mergeAgentsMd(current, file.content);
-    }
-    if (current === null) plan.push({ ...file, content, status: "created" });
-    else if (current === content) plan.push({ ...file, content, status: "unchanged" });
-    else if (file.path === "AGENTS.md")
-      plan.push({ ...file, content, status: "merged" });
-    else if (sameRoom || force)
-      plan.push({ ...file, content, status: "updated" });
-    else plan.push({ ...file, content, status: "blocked" });
-  }
-  return plan;
-}
-
 async function cmdJoin(args) {
   const ref = parseRoomRef(args.positional[0] ?? args.key);
   if (!ref.key) usage(1);
-  const base = args.base ?? ref.base ?? DEFAULT_BASE;
+  const base = normalizePackOrigin(args.base ?? ref.base ?? DEFAULT_BASE);
   const root = await realpath(process.cwd());
 
   const summary = await getJson(`${base}/api/room/${ref.key}`);
-  await preflightTargets(root, ["grill/.room"]);
-  const stampRaw = await readPackFile(join(root, "grill", ".room"));
-  const stamp = stampRaw ? JSON.parse(stampRaw) : null;
-  const sameRoom = stamp?.roomKey === ref.key;
+  if (summary.key !== ref.key) fail("invalid room summary: requested room does not match");
+  const stamp = await readInstallReceipt(root, "member");
+  const sameRoom = receiptMatches(stamp, base, ref.key);
 
   let roleSlug = args.role ?? (sameRoom ? stamp.role : null);
   if (roleSlug && !summary.roles.some((r) => r.slug === roleSlug)) {
@@ -344,8 +275,10 @@ async function cmdJoin(args) {
     `${base}/api/room/${ref.key}?role=${encodeURIComponent(roleSlug)}`,
   );
   const files = validatePack(pack, "member");
-  await preflightTargets(root, files.map((file) => file.path));
-  const plan = await planWrites(root, files, stamp, ref.key, args.force);
+  validateMemberIdentity(pack, files, ref.key, roleSlug);
+  const plan = await planInstall(root, files, {
+    kind: "member", origin: base, roomKey: ref.key, role: roleSlug, packVersion: pack.version,
+  }, stamp, args.force);
 
   if (args.dryRun) {
     console.log(
@@ -362,19 +295,7 @@ async function cmdJoin(args) {
     return;
   }
 
-  const blocked = plan.filter((f) => f.status === "blocked");
-  if (blocked.length > 0) {
-    fail(
-      `this repo already has pack files from a different room:\n  ${blocked
-        .map((f) => f.path)
-        .join("\n  ")}`,
-      "--force overwrites them; your specs and CONTRACT files are never touched",
-    );
-  }
-
-  for (const file of plan) {
-    if (file.status !== "unchanged") await writeInto(root, file);
-  }
+  await executeInstall(root, plan);
 
   if (name && !args.noClaim) {
     try {
@@ -423,41 +344,21 @@ async function claimQuietly(base, key, role, displayName) {
 /* host                                                                */
 
 async function cmdHost(args) {
-  const base = args.base ?? DEFAULT_BASE;
+  const base = normalizePackOrigin(args.base ?? DEFAULT_BASE);
   const root = await realpath(process.cwd());
   const bundle = await getJson(`${base}/api/skills/host`);
   const files = validatePack(bundle, "host");
-  await preflightTargets(root, files.map((file) => file.path));
-
-  const written = [];
-  const pending = [];
-  for (const file of files) {
-    const current = await readPackFile(safeTarget(root, file.path));
-    if (current === file.content) {
-      written.push(["unchanged", file.path]);
-      continue;
-    }
-    if (current !== null && !args.force) {
-      written.push(["kept", file.path]);
-      continue;
-    }
-    pending.push(file);
-    written.push([current === null ? "created" : "updated", file.path]);
-  }
-  if (!args.dryRun) {
-    for (const file of pending) await writeInto(root, file);
-  }
+  const receipt = await readInstallReceipt(root, "host");
+  const plan = await planInstall(root, files, { kind: "host", origin: base }, receipt, args.force);
+  if (!args.dryRun) await executeInstall(root, plan);
 
   console.log(
     args.dryRun
       ? `\n${bold("Dry run")} — nothing written.\n`
       : `\n${green("✓")} ${bold("Host skills installed")}\n`,
   );
-  for (const [status, path] of written) {
-    console.log(`  ${dim(status.padEnd(9))} ${path}`);
-  }
-  if (written.some(([s]) => s === "kept")) {
-    console.log(dim("\n  (kept your existing copies — pass --force to replace them)"));
+  for (const file of plan) {
+    console.log(`  ${dim(file.status.padEnd(9))} ${file.path}`);
   }
   if (args.dryRun) return;
 
