@@ -159,3 +159,20 @@ command and package version, and tests valid and invalid spec input. The
 trace check ensures both pack-serving routes include all four skill files
 in the production bundle. Neither command publishes a package or deploys the
 app.
+
+Persistence checks run against a disposable PostgreSQL 17 database in CI.
+Run them locally with `GRILL_TEST_DATABASE_URL` pointing to an **empty** admin
+database named `grill_test` or `grill_test_*`, then `npm run test:db`. The
+fixture applies the real migrations, creates Supabase-style test roles, and
+checks contended claims, committed versions, expiry after lock waits, role
+removal, authorization, RPC privileges, and RLS. It removes its table and
+functions when finished; use a temporary database because the fixture roles
+remain in the cluster. The `pg` driver is a development dependency only.
+
+Claims for different roles survive concurrent updates; claims for the same
+role retain the existing last-write-wins behavior. Concurrent authorized
+republishes are serialized, each returns its actual committed version, and
+the last committed content wins. Removing a role also removes its claim.
+Apply migration `0002_atomic_room_mutations.sql` before deploying this server
+version. Vanilla PostgreSQL checks do not replace a deployment smoke test
+against the configured Supabase project's API and service credentials.
