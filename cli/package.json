@@ -1,6 +1,6 @@
 {
   "name": "grill-with-me",
-  "version": "0.2.0",
+  "version": "0.3.0-beta.1",
   "description": "Join a grill-with-me room, or publish one: pack in, contract out.",
   "bin": {
     "grill-with-me": "./grill.mjs"
@@ -8,7 +8,15 @@
   "type": "module",
   "files": ["grill.mjs", "pack-files.mjs", "room-key.mjs", "host-credentials.mjs"],
   "engines": {
-    "node": ">=18"
+    "node": "^22.15.0 || ^24.0.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/taizhenC/grill_with_me.git",
+    "directory": "cli"
+  },
+  "bugs": { "url": "https://github.com/taizhenC/grill_with_me/issues" },
+  "homepage": "https://github.com/taizhenC/grill_with_me#readme",
+  "publishConfig": { "access": "public", "tag": "beta" }
 }
