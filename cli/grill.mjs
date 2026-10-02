@@ -27,6 +27,7 @@ import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { isRoomKey } from "./room-key.mjs";
 import { validatePack, preflightTargets, readPackFile } from "./pack-files.mjs";
+import { fetchJson } from "./http.mjs";
 import {
   CONFIG_FILE, normalizeHostOrigin, validateHostRoomKey, selectHostToken,
   readHostConfig as readConfig, prepareHostStorage, saveHostConfig as saveConfig,
@@ -157,26 +158,23 @@ function parseRoomRef(raw) {
 /* http                                                                */
 
 async function request(url, init) {
-  let res;
+  let result;
   try {
-    res = await fetch(url, init);
+    result = await fetchJson(url, init);
   } catch (err) {
     fail(
-      `could not reach ${url}`,
-      `${err.cause?.code ?? err.message} — check your connection, or --base`,
+      err.message,
+      err.outcomeUnknown
+        ? "the request may have reached the service; check room status before retrying. A lost publish response can leave a room without saved credentials"
+        : "check your connection, or --base",
     );
   }
-  const text = await res.text();
-  let body = {};
-  try {
-    body = text ? JSON.parse(text) : {};
-  } catch {
-    body = {};
-  }
+  const { response: res, body } = result;
   if (!res.ok) {
     const detail =
-      body.errors?.join("\n  ") ??
-      body.error ??
+      (Array.isArray(body.errors) && body.errors.every((error) => typeof error === "string")
+        ? body.errors.join("\n  ") : null) ??
+      (typeof body.error === "string" ? body.error : null) ??
       `server said ${res.status} for ${url}`;
     const token = init?.headers?.authorization?.replace(/^Bearer /, "");
     const safeDetail = token ? String(detail).replaceAll(token, "[redacted]") : detail;
@@ -381,7 +379,7 @@ async function cmdJoin(args) {
       await claimQuietly(base, ref.key, roleSlug, name);
     } catch {
       console.log(
-        dim("\n  (couldn't record your claim — just tell your host you took this role)"),
+        dim("\n  (couldn't confirm your claim — check status or tell your host you took this role)"),
       );
     }
   }
@@ -411,7 +409,7 @@ ${bold("Next — about ten minutes:")}
 }
 
 async function claimQuietly(base, key, role, displayName) {
-  const res = await fetch(`${base}/api/room/${key}/claim`, {
+  const { response: res } = await fetchJson(`${base}/api/room/${key}/claim`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ role, displayName }),
