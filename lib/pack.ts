@@ -137,7 +137,11 @@ Do not choose new function return shapes, status handling, retry behavior,
 rendering, or refresh mechanisms just to make the spec concrete. If my answer
 does not specify one, keep that detail under "Still unclear". For example,
 "reload" alone does not agree a full page reload or a particular fetch/result
-shape. State dependencies under "What I need from other roles" as requests
+shape. Approving error messages and keeping an item visible does not agree
+inline, banner, or toast placement, or a retry action. Split a multi-part
+recommendation into separately supported claims: an answer accepting some
+clauses leaves every unanswered clause under "Still unclear".
+State dependencies under "What I need from other roles" as requests
 until the relevant role has agreed; also list their pending agreement under
 "Still unclear". Do not claim a teammate approved or implemented a request.
 
