@@ -66,6 +66,18 @@ describe("local contract revision CLI", () => {
     expect(await readdir(dir)).toEqual([]);
   });
 
+  it("previews a valid proposal without writes and refuses a force bypass", async () => {
+    const dir = await draft();
+    const before = (await readdir(join(dir, "grill"))).sort();
+    const planned = await command(dir, "contract-finalize", "--dry-run");
+    expect(planned.code, JSON.stringify(planned.result)).toBe(0);
+    expect(planned.result.dryRun).toBe(true);
+    expect(planned.result.revision.number).toBe(1);
+    expect((await readdir(join(dir, "grill"))).sort()).toEqual(before);
+    expect((await command(dir, "contract-finalize", "--force")).code).toBe(1);
+    expect((await readdir(join(dir, "grill"))).sort()).toEqual(before);
+  });
+
   it("finalizes a non-TypeScript contract with a separate revision and source hashes", async () => {
     const dir = await draft();
     const finalized = await command(dir, "contract-finalize");

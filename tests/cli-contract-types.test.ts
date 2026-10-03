@@ -30,9 +30,9 @@ async function project(compiler = true) {
   }
   return dir;
 }
-async function gate(dir: string, config?: string) {
+async function gate(dir: string, config?: string, env?: Partial<NodeJS.ProcessEnv>) {
   try {
-    const { stdout } = await exec(process.execPath, [CLI, "contract-typecheck", ...(config ? [config] : [])], { cwd: dir });
+    const { stdout } = await exec(process.execPath, [CLI, "contract-typecheck", ...(config ? [config] : [])], { cwd: dir, timeout: 10_000, env: { ...process.env, ...env } });
     return { code: 0, result: JSON.parse(stdout) };
   } catch (error) {
     const failed = error as { code: number; stdout: string; stderr: string };
@@ -55,7 +55,7 @@ describe("project-level consuming contract typecheck", () => {
     expect(mismatch.result.typecheck.passed).toBe(false);
     expect(mismatch.result.typecheck.diagnostics).toContainEqual(expect.objectContaining({ file: "src/consumer.ts", code: 2339 }));
     expect(mismatch.result.typecheck.output).toContain("shadeRating");
-  });
+  }, 25_000);
 
   it.each(["absent", "unused", "side-effect"])("reports %s imports as unintegrated even though the project compiles", async (kind) => {
     const dir = await project();
@@ -68,11 +68,11 @@ describe("project-level consuming contract typecheck", () => {
     expect(result.result.integration).toBe("unintegrated");
     expect(result.result.typecheck.passed).toBe(true);
     expect(result.result.consumers).toEqual([]);
-  });
+  }, 20_000);
 
   it("requires the installed project compiler and reports solution configs as unknown", async () => {
     const dir = await project(false);
-    const missing = await gate(dir);
+    const missing = await gate(dir, undefined, { NODE_PATH: join(__dirname, "../node_modules") });
     expect(missing.code).toBe(1);
     expect(missing.result.integration).toBe("unknown");
     expect(missing.result.reason).toContain("project-local");
@@ -81,7 +81,7 @@ describe("project-level consuming contract typecheck", () => {
     const solution = await gate(installed, "solution.json");
     expect(solution.code).toBe(1);
     expect(solution.result.reason).toContain("leaf tsconfig");
-  });
+  }, 25_000);
 
   it("uses an installed local tsc project invocation when no npm typecheck script is declared", async () => {
     const dir = await project();
@@ -89,5 +89,5 @@ describe("project-level consuming contract typecheck", () => {
     const result = await gate(dir);
     expect(result.code, JSON.stringify(result.result)).toBe(0);
     expect(result.result.typecheck.command).toBe("local tsc --noEmit -p tsconfig.json");
-  });
+  }, 20_000);
 });

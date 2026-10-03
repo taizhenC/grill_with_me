@@ -50,8 +50,17 @@ export async function contractTypecheck(root, configFile = "tsconfig.json") {
   let ts, compiler, pkg;
   try {
     const require = createRequire(join(root, "package.json"));
-    ts = require("typescript");
-    compiler = require.resolve("typescript/bin/tsc");
+    let directory = resolve(root);
+    let installed;
+    for (;;) {
+      const candidate = join(directory, "node_modules/typescript");
+      if (existsSync(join(candidate, "package.json"))) { installed = candidate; break; }
+      if (dirname(directory) === directory) break;
+      directory = dirname(directory);
+    }
+    if (!installed) throw new Error("no local or workspace-hoisted compiler");
+    ts = require(installed);
+    compiler = require.resolve(join(installed, "bin/tsc"));
     pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
   } catch { return { ok: false, integration: "unknown", reason: "project-local TypeScript/package metadata unavailable; install declared dependencies explicitly" }; }
   const loaded = ts.readConfigFile(configPath, ts.sys.readFile);

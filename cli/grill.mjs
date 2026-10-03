@@ -5,6 +5,9 @@
  *   join <key|url>     member: fetch your role's pack into this repo
  *   check-spec         member: is the spec you just wrote well-formed?
  *   merge-preflight    host: validate the roster and every role spec before merge
+ *   contract-status    anyone: local revision/source freshness and pending roles
+ *   contract-finalize  author: finalize staged prose/types and revision history
+ *   contract-typecheck anyone: verify actual consuming TypeScript imports
  *   host               host:   install the host-side skills into this repo
  *   publish <file>     host:   publish grill-room.json, get the room link
  *   republish [file]   host:   swap the room content, bump the version
@@ -28,7 +31,7 @@ import process from "node:process";
 import { isRoomKey } from "./room-key.mjs";
 import { validateSpec } from "./spec-format.mjs";
 import { preflightMerge } from "./merge-preflight.mjs";
-import { contractStatus, finalizeContract } from "./contract-workflow.mjs";
+import { contractStatus, finalizeContract, planContract } from "./contract-workflow.mjs";
 import { contractTypecheck } from "./contract-types.mjs";
 import { validatePack } from "./pack-files.mjs";
 import { fetchJson } from "./http.mjs";
@@ -606,6 +609,12 @@ const COMMANDS = {
     if (!result.ok) process.exitCode = 1;
   },
   "contract-finalize": async (args) => {
+    if (args.force) throw new Error("contract finalization has no force bypass; reconcile the current parent and agreements");
+    if (args.dryRun) {
+      const plan = await planContract(process.cwd(), args.positional[0]);
+      console.log(JSON.stringify({ ok: true, dryRun: true, revision: plan.metadata.revision }, null, 2));
+      return;
+    }
     console.log(JSON.stringify(await finalizeContract(process.cwd(), args.positional[0]), null, 2));
   },
   "contract-typecheck": async (args) => {

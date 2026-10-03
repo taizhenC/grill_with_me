@@ -176,7 +176,7 @@ export async function planContract(root, proposalFile = "grill/CONTRACT-PROPOSAL
     agreedBy: proposal.agreedBy, pendingRoles: proposal.pendingRoles, resolvesPending: proposal.resolvesPending, amendmentResolution, agreements, source,
     proseHash: hashText(prose), typesHash, historyHash: hashText(changes) };
   const revision = { id: recordId(record), ...record };
-  const history = `${current.historyRaw}${JSON.stringify(revision)}\n`;
+  const history = `${current.historyRaw}${current.historyRaw && !current.historyRaw.endsWith("\n") ? "\n" : ""}${JSON.stringify(revision)}\n`;
   const outputs = { [PROSE]: prose, [CHANGES]: changes, [HISTORY]: history,
     [STATE]: `${JSON.stringify({ schemaVersion: 1, revision: revision.id }, null, 2)}\n` };
   if (types !== null) outputs[TYPES] = types;
