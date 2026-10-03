@@ -1,0 +1,23 @@
+{
+  "results": [
+    {
+      "phase": "check",
+      "exitCode": 0,
+      "stopped": null
+    }
+  ],
+  "modifications": [],
+  "added": [
+    "grill/CHECK-REPORT.md"
+  ],
+  "target": "grill/CHECK-REPORT.md",
+  "artifactExists": true,
+  "structure": null,
+  "writeScopeOk": true,
+  "readScope": {
+    "knownHomeReadFindings": [],
+    "fullyConfined": false,
+    "review": "Manual trace review required; write scope does not prove read confinement."
+  },
+  "manualGrade": "Pending; structure validity is not a behavior grade."
+}
