@@ -1,0 +1,9 @@
+{
+  "source": "First Claude Write tool payload",
+  "structure": {
+    "ok": true,
+    "missing": [],
+    "thin": [],
+    "errors": []
+  }
+}
