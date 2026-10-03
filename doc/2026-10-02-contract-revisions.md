@@ -1,7 +1,7 @@
 # P1-02 contract revisions and consuming TypeScript integration
 
 Prepared 2026-10-02 on `codex/contract-revisions`, based on integrated main
-`3809689`. Feature PR: recorded after creation below. No merge is performed
+`3809689`. Feature PR: [#28](https://github.com/taizhenC/grill_with_me/pull/28). No merge is performed
 by this feature branch; combined main validation follows the requested merges.
 
 ## Delivered behavior
