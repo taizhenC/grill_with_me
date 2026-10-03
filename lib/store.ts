@@ -4,6 +4,7 @@ import { generateRoomKey, generateHostToken } from "./keys";
 import { storeConfig } from "./store-config";
 import type { PublicationRequest, PublicationResult } from "./publication";
 import { PublicationError, PUBLICATION_CLOCK_SKEW_MS } from "../cli/publication-capability.mjs";
+import { storageRequest, StorageUnavailableError, STORAGE_DEADLINE_MS } from "./storage-failure";
 
 /**
  * Persistence for rooms. Two implementations behind one interface:
@@ -186,88 +187,91 @@ export class SupabaseStore implements RoomStore {
   constructor(private db: SupabaseClient) {}
 
   async delete(key: string, hostToken: string) {
-    const { data, error } = await this.db.rpc("delete_room", {
+    const { data, error } = await storageRequest("delete", (signal) => this.db.rpc("delete_room", {
       p_key: key, p_host_token: hostToken,
-    }).abortSignal(AbortSignal.timeout(5000));
+    }).abortSignal(signal));
     if (error?.code === "PT404") throw new NotFoundError(key);
     if (error?.code === "PT403") throw new ForbiddenError();
-    if (error || data !== true) throw new Error("room deletion unavailable");
+    if (error || data !== true) throw new StorageUnavailableError("delete");
   }
 
   async create(room: GrillRoom, publication?: PublicationRequest): Promise<PublicationResult> {
     const hostToken = generateHostToken();
+    const deadline = performance.now() + STORAGE_DEADLINE_MS;
     for (let attempt = 0; attempt < ROOM_CREATION_ATTEMPTS; attempt++) {
+      const remaining = deadline - performance.now();
+      if (remaining <= 0) throw new StorageUnavailableError("create");
       const key = generateRoomKey();
       if (publication) {
-        const { data, error } = await this.db.rpc("create_room_recoverable", {
+        const { data, error } = await storageRequest("create", (signal) => this.db.rpc("create_room_recoverable", {
           p_capability_hash: publication.hash, p_payload_hash: publication.payloadHash,
           p_origin: publication.origin, p_issued_at: publication.issuedAt,
           p_key: key, p_host_token: hostToken, p_room: room,
-        }).abortSignal(AbortSignal.timeout(5000));
+        }).abortSignal(signal), remaining);
         if (error?.code === "PT400") throw new PublicationError("publication_invalid", "invalid publication recovery capability or clock", 400);
         if (error?.code === "PT409") throw new PublicationError("publication_conflict", "publication recovery belongs to another origin or payload", 409);
         if (error?.code === "PT410") throw new PublicationError("publication_gone", "publication recovery expired or its room was removed", 410);
         if (error?.code === "23505" && error.message === 'duplicate key value violates unique constraint "rooms_key_key"') continue;
-        if (error) throw new Error("publication recovery backend unavailable");
+        if (error) throw new StorageUnavailableError("create");
         if (!data || typeof data.key !== "string" || typeof data.hostToken !== "string" ||
             typeof data.recovery?.replayed !== "boolean" || Date.parse(data.recovery.expiresAt) !== Date.parse(publication.expiresAt)) {
-          throw new Error("publication recovery backend returned an invalid result");
+          throw new StorageUnavailableError("create");
         }
         return { key: data.key, hostToken: data.hostToken, recovery: { replayed: data.recovery.replayed, expiresAt: publication.expiresAt } };
       }
-      const { error } = await this.db.from("rooms").insert({
+      const { error } = await storageRequest("create", (signal) => this.db.from("rooms").insert({
         key,
         host_token: hostToken,
         version: 1,
         room,
         claims: {},
         expires_at: expiry(),
-      });
+      }).abortSignal(signal), remaining);
       if (!error) return { key, hostToken };
       // 0001_rooms.sql gives key its own UNIQUE constraint; rooms_pkey is id.
       // PostgREST exposes the constraint name in PostgreSQL's error message.
       const keyCollision = error.code === "23505" &&
         error.message === 'duplicate key value violates unique constraint "rooms_key_key"';
-      if (!keyCollision) throw new Error(`room insert failed: ${error.message}`);
+      if (!keyCollision) throw new StorageUnavailableError("create");
     }
-    throw new Error("room creation failed: unique key retries exhausted");
+    throw new StorageUnavailableError("create");
   }
 
   async get(key: string) {
-    const { data, error } = await this.db
+    const { data, error } = await storageRequest("read", (signal) => this.db
       .from("rooms")
       .select("*")
       .eq("key", key)
-      .maybeSingle();
-    if (error) throw new Error(`room read failed: ${error.message}`);
+      .abortSignal(signal).maybeSingle());
+    if (error) throw new StorageUnavailableError("read");
     if (!data) return null;
     const stored = fromRow(data as RoomRow);
     return isExpired(stored) ? null : stored;
   }
 
   async republish(key: string, hostToken: string, room: GrillRoom) {
-    const { data, error } = await this.db.rpc("republish_room", {
+    const { data, error } = await storageRequest("republish", (signal) => this.db.rpc("republish_room", {
       p_key: key,
       p_host_token: hostToken,
       p_room: room,
-    });
+    }).abortSignal(signal));
     if (error?.code === "PT404") throw new NotFoundError(key);
     if (error?.code === "PT403") throw new ForbiddenError();
-    if (error) throw new Error(`republish failed: ${error.message}`);
+    if (error) throw new StorageUnavailableError("republish");
     if (typeof data !== "number" || !Number.isInteger(data) || data < 2) {
-      throw new Error("republish failed: database did not return a committed version");
+      throw new StorageUnavailableError("republish");
     }
     return data;
   }
 
   async claim(key: string, roleSlug: string, displayName: string) {
-    const { error } = await this.db.rpc("claim_room", {
+    const { error } = await storageRequest("claim", (signal) => this.db.rpc("claim_room", {
       p_key: key,
       p_role_slug: roleSlug,
       p_display_name: displayName,
-    });
+    }).abortSignal(signal));
     if (error?.code === "PT404") throw new NotFoundError(`room or role ${roleSlug}`);
-    if (error) throw new Error(`claim failed: ${error.message}`);
+    if (error) throw new StorageUnavailableError("claim");
   }
 }
 

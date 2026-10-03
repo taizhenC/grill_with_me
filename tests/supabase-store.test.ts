@@ -67,7 +67,7 @@ describe("Supabase mutation transport", () => {
   });
 
   it.each([null, "2", 0, 1, 2.5, {}])("rejects a missing or invalid committed version %j", async (data) => {
-    await expect(fixture(data).store.republish("key", "token", room)).rejects.toThrow("committed version");
+    await expect(fixture(data).store.republish("key", "token", room)).rejects.toMatchObject({ code: "GRILL_STORAGE_UNAVAILABLE", operation: "republish" });
   });
 
   it("maps missing or expired rows/roles and invalid tokens to domain errors", async () => {
@@ -79,7 +79,7 @@ describe("Supabase mutation transport", () => {
 
   it("does not acknowledge a failed database mutation", async () => {
     const failed = fixture({ code: "XX000", message: "database unavailable" }, 500).store;
-    await expect(failed.republish("key", "token", room)).rejects.toThrow("republish failed");
-    await expect(failed.claim("key", "frontend", "Alice")).rejects.toThrow("claim failed");
+    await expect(failed.republish("key", "token", room)).rejects.toMatchObject({ code: "GRILL_STORAGE_UNAVAILABLE", operation: "republish" });
+    await expect(failed.claim("key", "frontend", "Alice")).rejects.toMatchObject({ code: "GRILL_STORAGE_UNAVAILABLE", operation: "claim" });
   });
 });

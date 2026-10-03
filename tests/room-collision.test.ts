@@ -94,7 +94,7 @@ describe("SupabaseStore collision handling", () => {
   it("bounds repeated key collisions", async () => {
     vi.spyOn(keys, "generateRoomKey").mockReturnValue(collisionKey);
     const { store, attempts } = database([collision]);
-    await expect(store.create(room("New"))).rejects.toThrow("unique key retries exhausted");
+    await expect(store.create(room("New"))).rejects.toMatchObject({ code: "GRILL_STORAGE_UNAVAILABLE", operation: "create" });
     expect(attempts).toHaveLength(ROOM_CREATION_ATTEMPTS);
   });
 
@@ -106,7 +106,7 @@ describe("SupabaseStore collision handling", () => {
     { ...collision, code: "08006", message: "database unavailable" },
   ])("does not retry another constraint or database error: $code $message", async (error) => {
     const { store, attempts } = database([error, null]);
-    await expect(store.create(room("New"))).rejects.toThrow("room insert failed");
+    await expect(store.create(room("New"))).rejects.toMatchObject({ code: "GRILL_STORAGE_UNAVAILABLE", operation: "create" });
     expect(attempts).toHaveLength(1);
   });
 });
