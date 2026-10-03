@@ -38,6 +38,8 @@ export interface RoomStore {
   /** Replace the room content; bumps version. Requires the host token. */
   republish(key: string, hostToken: string, room: GrillRoom): Promise<number>;
   claim(key: string, roleSlug: string, displayName: string): Promise<void>;
+  /** Physically remove a room, including an expired room, with its host token. */
+  delete(key: string, hostToken: string): Promise<void>;
 }
 
 export class NotFoundError extends Error {}
@@ -60,6 +62,23 @@ function isExpired(stored: StoredRoom): boolean {
 
 export class MemoryStore implements RoomStore {
   private rooms = new Map<string, StoredRoom>();
+
+  async delete(key: string, hostToken: string) {
+    const stored = this.rooms.get(key);
+    if (!stored) throw new NotFoundError(key);
+    if (stored.hostToken !== hostToken) throw new ForbiddenError();
+    this.rooms.delete(key);
+  }
+
+  /** Development maintenance counterpart; expiry alone only hides rooms. */
+  purgeExpired(limit: number): number {
+    let deleted = 0;
+    for (const [key, stored] of this.rooms) {
+      if (deleted >= limit) break;
+      if (isExpired(stored)) { this.rooms.delete(key); deleted++; }
+    }
+    return deleted;
+  }
 
   async create(room: GrillRoom) {
     for (let attempt = 0; attempt < ROOM_CREATION_ATTEMPTS; attempt++) {
@@ -137,6 +156,15 @@ function fromRow(row: RoomRow): StoredRoom {
 
 export class SupabaseStore implements RoomStore {
   constructor(private db: SupabaseClient) {}
+
+  async delete(key: string, hostToken: string) {
+    const { data, error } = await this.db.rpc("delete_room", {
+      p_key: key, p_host_token: hostToken,
+    }).abortSignal(AbortSignal.timeout(5000));
+    if (error?.code === "PT404") throw new NotFoundError(key);
+    if (error?.code === "PT403") throw new ForbiddenError();
+    if (error || data !== true) throw new Error("room deletion unavailable");
+  }
 
   async create(room: GrillRoom) {
     const hostToken = generateHostToken();

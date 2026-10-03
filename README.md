@@ -181,6 +181,7 @@ grill/
 | `host` | host | installs `grill-host` + `merge-contract` here |
 | `publish <file>` | host | publishes `grill-room.json`, prints the link |
 | `republish [file]` | host | replaces the room content, bumps the version |
+| `delete <key\|url>` | host | physically removes the shared room with its host token |
 | `status [key\|url]` | anyone | who has claimed what |
 
 Useful flags: `--role <slug>`, `--name <name>`, `--dry-run`, `--force`,
@@ -193,7 +194,7 @@ Useful flags: `--role <slug>`, `--name <name>`, `--dry-run`, `--force`,
 | `skills/` | The product: `grill-host`, `merge-contract`, `check-contract`, `amend-contract` |
 | `app/`, `lib/` | The pack-serving web app (Next.js; Supabase or in-memory store) |
 | `cli/` | The zero-dependency `npx grill-with-me` CLI |
-| `supabase/migrations/` | One table |
+| `supabase/migrations/` | Rooms, request counters, atomic mutations and cleanup |
 | `plan.md` | The full design, decision log, and delivery plan |
 
 ## Running the web app
@@ -223,7 +224,14 @@ with HTTP 503 instead of creating temporary rooms. Builds need no secrets.
 rejects it. Never expose the service key to a browser.
 `SUPABASE_URL` requires HTTPS; HTTP is permitted only for loopback endpoints
 in development or tests.
-Rooms expire after 30 days. If you deploy your own copy, the commands the app prints carry
+Room access expires 30 days after creation; physical removal requires a successful
+configured purge. Hosts can run `node cli/grill.mjs delete <room-url>` before or
+after expiry with that room's token. Local packs, specs and credentials remain.
+See [privacy and retention](doc/privacy-and-retention.md) and
+[the operations runbook](doc/operations-retention-runbook.md) for setup/recovery.
+The daily `vercel.json` declaration needs an actual production deployment and
+server-only `CRON_SECRET`; it is not proof of an active schedule.
+If you deploy your own copy, the commands the app prints carry
 `--base` automatically.
 
 Set `GRILL_PUBLIC_ORIGIN=https://your-service.example` on a public deployment to
@@ -296,7 +304,7 @@ Limits use fixed, aligned one-hour windows:
 | Create | 20 | 500 |
 | Read / download / room page | 1,000 | 10,000 |
 | Claim | 120 | 1,000 |
-| Republish | 60 | 500 |
+| Republish / delete (shared) | 60 | 500 |
 
 Vercel supplies sanitized client-IP forwarding headers, so `VERCEL=1` enables
 per-IP budgeting there. On other hosts, requests share one conservative
@@ -312,8 +320,8 @@ do not charge the other counter, and global exhaustion creates no new client
 rows. This is a fixed-window limiter: a burst immediately before and after a
 window boundary can consume both windows' budgets. Shared networks use one
 IP budget. Counters older than their expired window plus one hour are removed
-in batches of 128 on subsequent traffic for that operation; without traffic,
-expired rows remain until the operation is used again.
+in batches of 128 on subsequent traffic for that operation. Configured maintenance
+also removes idle stale client rows across operations.
 
 Run `npm run test:runtime` after `npm run build` to verify the actual compiled
 API and page proxy responses, including 429, cross-bundle backend 503, host
@@ -321,3 +329,6 @@ token 403, expired/missing room 404, and invalid production storage 503. These
 checks use controlled HTTP RPC responses; `npm run test:db` separately proves
 real PostgreSQL quota concurrency and persistence across an application restart.
 Apply migration `0003_shared_request_quotas.sql` before deploying this version.
+Host deletion and retention also require `0004_retention_and_room_deletion.sql`.
+Database checks include physical deletion, concurrent bounded cleanup, rollback
+and browser-role denial; compiled checks cover host DELETE and maintenance GET/POST.

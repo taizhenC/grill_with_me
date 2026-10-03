@@ -16,7 +16,7 @@ let primary: Server;
 let foreign: Server;
 let base: string;
 let otherBase: string;
-let calls: { path: string; expectedToken: boolean }[];
+let calls: { path: string; expectedToken: boolean; method?: string }[];
 let foreignCalls: number;
 let foreignExplicitToken: boolean;
 let redirectTo: string | null;
@@ -34,7 +34,7 @@ beforeAll(async () => {
   primary = createServer(async (req, res) => {
     for await (const _chunk of req) { /* consume the request */ }
     const path = req.url ?? "/";
-    calls.push({ path, expectedToken: req.headers.authorization === `Bearer ${TOKEN}` });
+    calls.push({ path, expectedToken: req.headers.authorization === `Bearer ${TOKEN}`, ...(req.method === "DELETE" ? { method: "DELETE" } : {}) });
     if (path === "/api/rooms" && beforePublish) await beforePublish();
     if (redirectTo) {
       res.writeHead(307, { location: redirectTo });
@@ -45,7 +45,7 @@ beforeAll(async () => {
       return res.end(JSON.stringify({ error: req.headers.authorization }));
     }
     res.setHeader("content-type", "application/json");
-    res.end(JSON.stringify(path === "/api/rooms"
+    res.end(JSON.stringify(req.method === "DELETE" ? { ok: true } : path === "/api/rooms"
       ? { key: KEY, hostToken: TOKEN, url: `/r/${KEY}` }
       : { key: KEY, version: 2 }));
   });
@@ -97,6 +97,54 @@ async function run(args: string[], cwd: string, extraEnv: Record<string, string 
 }
 
 describe("host credential destinations", () => {
+  it("deletes only an explicit room with scoped saved credentials and preserves local files", async () => {
+    const dir = await checkout();
+    const before = await readFile(join(dir, CONFIG), "utf8");
+    const result = await run(["delete", `${base}/r/${KEY}`], dir);
+    expect(result.code).toBe(0);
+    expect(calls).toEqual([{ path: `/api/room/${KEY}`, expectedToken: true, method: "DELETE" }]);
+    expect(await readFile(join(dir, CONFIG), "utf8")).toBe(before);
+    expect(await readFile(join(dir, "grill-room.json"), "utf8")).toBe("{}\n");
+    expect(result.stdout).toContain("Local packs, specs and saved credentials remain");
+    expect(result.stdout + result.stderr).not.toContain(TOKEN);
+  });
+
+  it("does not infer a destructive destination from saved state", async () => {
+    const result = await run(["delete"], await checkout());
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("explicit room key");
+    expect(calls).toEqual([]);
+  });
+
+  it("supports explicit --key and rejects ambiguous deletion targets", async () => {
+    const dir = await checkout();
+    expect((await run(["delete", "--key", KEY], dir)).code).toBe(0);
+    expect(calls).toHaveLength(1);
+    expect((await run(["delete", KEY, "--key", KEY], dir)).code).toBe(1);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("refuses saved deletion credentials for another room or origin before contacting either server", async () => {
+    const dir = await checkout();
+    expect((await run(["delete", KEY, "--base", otherBase], dir)).code).toBe(1);
+    expect((await run(["delete", "other-room-22"], dir)).code).toBe(1);
+    expect(calls).toEqual([]);
+    expect(foreignCalls).toBe(0);
+  });
+
+  it("does not forward deletion credentials through redirects or echo them in errors", async () => {
+    const dir = await checkout();
+    redirectTo = `${otherBase}/api/room/${KEY}`;
+    const redirected = await run(["delete", KEY], dir);
+    expect(redirected.code).toBe(1);
+    expect(foreignCalls).toBe(0);
+    redirectTo = null;
+    echoAuthError = true;
+    const denied = await run(["delete", KEY], dir);
+    expect(denied.code).toBe(1);
+    expect(denied.stdout + denied.stderr + redirected.stderr).not.toContain(TOKEN);
+  });
+
   it("never sends a saved token when --base changes origin", async () => {
     const dir = await checkout();
     const before = await readFile(join(dir, CONFIG), "utf8");

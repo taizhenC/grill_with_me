@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:browser": "playwright test",
-    "test:db": "node scripts/verify-store-database.mjs && node scripts/verify-request-quotas.mjs",
+    "test:db": "node scripts/verify-store-database.mjs && node scripts/verify-request-quotas.mjs && node scripts/verify-retention-database.mjs",
+    "test:retention": "node scripts/verify-retention-database.mjs",
     "test:quotas": "node scripts/verify-request-quotas.mjs",
     "test:runtime": "node scripts/verify-service-runtime.mjs",
     "test:watch": "vitest"

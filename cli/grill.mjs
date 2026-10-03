@@ -8,6 +8,7 @@
  *   host               host:   install the host-side skills into this repo
  *   publish <file>     host:   publish grill-room.json, get the room link
  *   republish [file]   host:   swap the room content, bump the version
+ *   delete <key|url>   host:   physically remove the shared room
  *   status [key|url]   anyone: who has claimed what
  *
  * Zero dependencies on purpose — npx cold-start stays fast and nothing can
@@ -95,6 +96,7 @@ ${bold("If you are the host:")}
   npx grill-with-me host                    install grill-host + merge-contract here
   npx grill-with-me publish <file>          publish grill-room.json, get the link
   npx grill-with-me republish [file]        replace the room content, bump version
+  npx grill-with-me delete <room-key|url>   remove the shared room with its host token
   npx grill-with-me status [room-key|url]   who has claimed what
 
 ${dim(`Run join/host from your repo root. Everything else works anywhere.
@@ -474,6 +476,23 @@ ${green("✓")} ${bold(`Room ${key} is now v${result.version}`)}
 `);
 }
 
+async function cmdDelete(args) {
+  const ref = parseRoomRef(args.key ?? args.positional[0]);
+  if (!ref.key) fail("deletion requires an explicit room key", "npx grill-with-me delete <room-key|url> (or --key <room-key>)");
+  if (args.positional.length > 1 || (args.key && args.positional.length)) fail("pass exactly one room to delete");
+  const root = await realpath(process.cwd());
+  const config = await readConfig(root);
+  const base = normalizeHostOrigin(args.base ?? ref.base ?? config.base ?? DEFAULT_BASE);
+  validateHostRoomKey(ref.key);
+  const token = selectHostToken(config, base, ref.key, args.token ?? process.env.GRILL_WITH_ME_TOKEN);
+  if (!token) fail("no host token", `run where ${CONFIG_FILE} lives or set GRILL_WITH_ME_TOKEN`);
+  const result = await request(`${base}/api/room/${ref.key}`, {
+    method: "DELETE", headers: { authorization: `Bearer ${token}` },
+  });
+  if (result.ok !== true) fail("service did not confirm deletion", "check room status before retrying");
+  console.log(`\n${green("✓")} ${bold(`Room ${ref.key} deleted from ${base}`)}\n\n  Local packs, specs and saved credentials remain on this computer.\n`);
+}
+
 async function cmdStatus(args) {
   const config = await readConfig(process.cwd());
   const ref = parseRoomRef(args.positional[0] ?? args.key ?? config.roomKey);
@@ -579,6 +598,7 @@ const COMMANDS = {
   host: cmdHost,
   publish: cmdPublish,
   republish: cmdRepublish,
+  delete: cmdDelete,
   status: cmdStatus,
   help: async () => usage(0),
 };
