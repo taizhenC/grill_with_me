@@ -216,6 +216,15 @@ in development or tests.
 Rooms expire after 30 days. If you deploy your own copy, the commands the app prints carry
 `--base` automatically.
 
+Set `GRILL_PUBLIC_ORIGIN=https://your-service.example` on a public deployment to
+pin printed links and commands to its canonical origin. Otherwise they use the
+validated request Host, infer HTTPS for public hosts, and allow HTTP only for
+literal loopback development. Forwarded host/protocol headers are ignored unless
+`GRILL_TRUST_PROXY=1`; enable that only when your ingress replaces all incoming
+forwarded identity/origin headers. Malformed origins fail without echoing their
+contents. Printed origins contain normalized DNS/IP names and ports, not shell
+expressions, credentials, paths, or query fragments.
+
 ## Release checks
 
 CI runs the full test suite, typecheck, and production build on Linux with
