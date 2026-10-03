@@ -5,7 +5,12 @@ alert or public deployment has been created by committing them.
 
 ## Configure and verify
 
-Apply all migrations in order, including `0005_publication_recovery.sql`.
+Apply all migrations in order through `0006_explicit_room_privileges.sql`.
+The final migration explicitly grants room CRUD to `service_role` and removes
+direct room-table access from `PUBLIC`, `anon` and `authenticated`. New Supabase
+projects no longer supply automatic table grants; bypassing RLS does not grant
+table privileges. Do not enable browser access to repair a missing server grant.
+[Supabase table-grant change](https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically)
 Deletion/cleanup functions are security invoker, use an empty search path and
 allow only service-role execution. Keep RLS enabled without browser policies.
 Verify actual Supabase grants and RPC/schema-cache availability after migration;

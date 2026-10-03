@@ -37,6 +37,12 @@ async function row() {
   return (await admin.query("select * from public.rooms where key = 'fixture-key'")).rows[0];
 }
 
+async function roomPrivileges(role) {
+  return (await admin.query(`select privilege,
+    has_table_privilege($1, 'public.rooms', privilege) as allowed
+    from unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE']) as p(privilege)`, [role])).rows;
+}
+
 try {
   await admin.connect();
   const database = (await admin.query("select current_database() as name, version() as version")).rows[0];
@@ -53,8 +59,27 @@ try {
   for (const file of ["0001_rooms.sql", "0002_atomic_room_mutations.sql", "0002_atomic_room_mutations.sql"]) {
     await admin.query(await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), "utf8"));
   }
-  await admin.query("grant usage on schema public to service_role, anon, authenticated; grant select, insert, update on public.rooms to service_role; grant select on public.rooms to anon, authenticated");
-  await admin.query("insert into public.rooms(key,host_token,room,expires_at) values('fixture-key','fixture-token',$1,clock_timestamp() + interval '1 day')", [fixtureRoom]);
+  await admin.query("grant usage on schema public to service_role, anon, authenticated; revoke all on public.rooms from public, anon, authenticated, service_role");
+  // Match current Supabase defaults instead of granting the fixture's server
+  // access ourselves. A BYPASSRLS role still cannot read without a table grant.
+  assert.deepEqual((await roomPrivileges("service_role")).map((p) => p.allowed), [false, false, false, false]);
+  await admin.query("begin");
+  await admin.query("set local role service_role");
+  await expectCode(admin.query("select count(*) from public.rooms"), "42501");
+  await admin.query("rollback");
+
+  const grantsMigration = await readFile(new URL("../supabase/migrations/0006_explicit_room_privileges.sql", import.meta.url), "utf8");
+  await admin.query(grantsMigration);
+  assert.deepEqual((await roomPrivileges("service_role")).map((p) => p.allowed), [true, true, true, true]);
+  // A repeat must retain server access and remove old automatic grants,
+  // including inherited PUBLIC access, without changing RLS or policies.
+  await admin.query("grant select, insert, update, delete on public.rooms to public, anon, authenticated");
+  await admin.query(grantsMigration);
+  assert.deepEqual((await roomPrivileges("service_role")).map((p) => p.allowed), [true, true, true, true]);
+  for (const role of ["anon", "authenticated"]) {
+    assert.deepEqual((await roomPrivileges(role)).map((p) => p.allowed), [false, false, false, false]);
+  }
+  assert.equal((await admin.query("select count(*)::int as n from pg_policies where schemaname='public' and tablename='rooms'")).rows[0].n, 0);
 
   for (let i = 0; i < 8; i++) {
     const worker = new pg.Client({ ...options, application_name: applicationName });
@@ -62,6 +87,13 @@ try {
     await worker.connect();
     await worker.query("set role service_role");
   }
+  const insertFixture = () => workers[0].query("insert into public.rooms(key,host_token,room,expires_at) values('fixture-key','fixture-token',$1,clock_timestamp() + interval '1 day') returning version", [fixtureRoom]);
+  assert.equal((await insertFixture()).rows[0].version, 1);
+  assert.equal((await workers[0].query("select version from public.rooms where key='fixture-key'")).rows[0].version, 1);
+  assert.equal((await workers[0].query("update public.rooms set version=version+1 where key='fixture-key' returning version")).rows[0].version, 2);
+  assert.equal((await workers[0].query("delete from public.rooms where key='fixture-key'")).rowCount, 1);
+  await insertFixture();
+  console.log("PASS: migration supplies real service-role CRUD without automatic grants and removes legacy browser/PUBLIC access");
   const claim = (worker, slug, name) => worker.query("select public.claim_room($1,$2,$3)", ["fixture-key", slug, name]);
   const republish = (worker, room = fixtureRoom, token = "fixture-token", key = "fixture-key") =>
     worker.query("select public.republish_room($1,$2,$3) as version", [key, token, room]);
@@ -135,17 +167,25 @@ try {
 
   for (const role of ["anon", "authenticated"]) {
     await workers[0].query(`set role ${role}`);
-    assert.equal((await workers[0].query("select * from public.rooms")).rows.length, 0);
+    await expectCode(workers[0].query("select * from public.rooms"), "42501");
+    await expectCode(workers[0].query("insert into public.rooms(key,host_token,room,expires_at) values('blocked','blocked','{}',clock_timestamp())"), "42501");
+    await expectCode(workers[0].query("update public.rooms set version=version+1"), "42501");
+    await expectCode(workers[0].query("delete from public.rooms"), "42501");
     await expectCode(claim(workers[0], "role-0", "No access"), "42501");
     await expectCode(republish(workers[0]), "42501");
     const privileges = (await admin.query("select has_function_privilege($1, 'public.claim_room(text,text,text)', 'execute') as claim, has_function_privilege($1, 'public.republish_room(text,text,jsonb)', 'execute') as republish", [role])).rows[0];
     assert.deepEqual(privileges, { claim: false, republish: false });
+    // Keep the independent RLS fallback check: even a deliberately granted
+    // fixture SELECT cannot expose a room while there are no browser policies.
+    await admin.query(`grant select on public.rooms to ${role}`);
+    try { assert.equal((await workers[0].query("select * from public.rooms")).rows.length, 0); }
+    finally { await admin.query(`revoke select on public.rooms from ${role}`); }
   }
   const functions = await admin.query("select prosecdef from pg_proc where oid in ('public.claim_room(text,text,text)'::regprocedure, 'public.republish_room(text,text,jsonb)'::regprocedure)");
   assert.equal(functions.rows.length, 2);
   assert(functions.rows.every((fn) => fn.prosecdef === false));
   assert.equal((await admin.query("select relrowsecurity from pg_class where oid = 'public.rooms'::regclass")).rows[0].relrowsecurity, true);
-  console.log("PASS: anon/authenticated cannot execute RPCs or read RLS-protected rows");
+  console.log("PASS: browser CRUD and RPCs are denied; independently granted fixture SELECT still cannot bypass RLS");
 } finally {
   await admin.query("rollback").catch(() => {});
   await Promise.allSettled(workers.map((worker) => worker.end()));
