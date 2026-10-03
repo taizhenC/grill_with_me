@@ -4,6 +4,8 @@ This documentation feature starts from main
 `19feaa414578d5cd968534633df7ddca7c83bd82` on branch
 `codex/upgrade-progress-report`.
 
+Pull request: [#32](https://github.com/taizhenC/grill_with_me/pull/32).
+
 ## Changes
 
 - [The upgrade plan](../upgrade-plan.md) records merged PRs #20–#31 and the
@@ -42,7 +44,8 @@ main execution records, not functional suites rerun for this documentation chang
 
 - `d2967f2` — merged progress, historical baseline, current evidence and open gates.
 - `0c5dd12` — executable release checks and actual database/origin procedures.
-- Completion-record commit — this scope and validation report.
+- `9a21d72` — this scope and validation report.
+- PR-reference commit — link the opened review to this completion record.
 
 Feature commits use author and committer `taizhenC <tzhcheung@gmail.com>` without
 co-author trailers. No package was published, service deployed, or production
