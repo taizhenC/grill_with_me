@@ -202,7 +202,8 @@ describe("CLI publication recovery", { timeout: 20_000 }, () => {
   });
   it("concurrent first publishers cannot replace each other's pending capability and create two rooms", async () => {
     const cwd = await checkout();
-    await Promise.all([run(["publish", "--base", base], cwd), run(["publish", "--base", base], cwd)]);
+    const results = await Promise.all([run(["publish", "--base", base], cwd), run(["publish", "--base", base], cwd)]);
+    for (const result of results) expect([0, 1], result.stderr).toContain(result.code);
     await expectSingleRecoverablePublication(cwd);
   });
   it("recovers one unchanged publication when both first publishers safely stop before sending", async () => {
@@ -211,9 +212,9 @@ describe("CLI publication recovery", { timeout: 20_000 }, () => {
       run(["publish", "--base", base], cwd, "A"),
       run(["publish", "--base", base], cwd, "B"),
     ]);
-    expect(winner.code, winner.stderr).not.toBe(0);
+    expect(winner.code, winner.stderr).toBe(1);
     expect(winner.stderr).toContain("temporary credential file");
-    expect(contender.code, contender.stderr).not.toBe(0);
+    expect(contender.code, contender.stderr).toBe(1);
     expect(contender.stderr).toContain("state changed");
     expect(calls).toBe(0);
     expect(await stat(join(cwd, `${RECOVERY}.tmp`)).then(() => true, () => false)).toBe(false);
