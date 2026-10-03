@@ -6,7 +6,7 @@
     "grill-with-me": "grill.mjs"
   },
   "type": "module",
-  "files": ["grill.mjs", "pack-files.mjs", "pack-install.mjs", "member-storage.mjs", "room-key.mjs", "host-credentials.mjs", "http.mjs", "spec-format.mjs", "merge-input.mjs", "merge-preflight.mjs", "contract-record.mjs", "contract-record.d.mts", "contract-files.mjs", "contract-workflow.mjs"],
+  "files": ["grill.mjs", "pack-files.mjs", "pack-install.mjs", "member-storage.mjs", "room-key.mjs", "host-credentials.mjs", "http.mjs", "spec-format.mjs", "merge-input.mjs", "merge-preflight.mjs", "contract-record.mjs", "contract-record.d.mts", "contract-files.mjs", "contract-workflow.mjs", "contract-types.mjs"],
   "engines": {
     "node": "^22.15.0 || ^24.0.0"
   },
