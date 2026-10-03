@@ -1,0 +1,91 @@
+{
+  "reviewedAt": "2026-10-02 America/New_York",
+  "method": "Offline source/UTF-8/JSON/privacy/redaction/receipt/spec validation; manual trace/behavior review in grades.md. No model invocation.",
+  "sourceFilesChecked": 24,
+  "sourceMismatches": [],
+  "preflightHashMismatches": [],
+  "scan": {
+    "population": "Original captured/preflight files before verification/manual grades",
+    "files": 9,
+    "jsonParsed": 7,
+    "issues": []
+  },
+  "behavioralCalls": 2,
+  "completedCommands": 14,
+  "structure": {
+    "ok": true,
+    "missing": [],
+    "thin": [],
+    "errors": []
+  },
+  "firstEqualsFinal": true,
+  "receipt": {
+    "receiptVersion": 2,
+    "kind": "member",
+    "role": "frontend",
+    "files": 6,
+    "hashMismatches": [],
+    "hashMethod": "Actual installer canonical LF content and AGENTS fenced block"
+  },
+  "writeScopeOk": true,
+  "modifications": [],
+  "added": [
+    "grill/frontend-spec.md"
+  ],
+  "phases": [
+    {
+      "phase": "interview",
+      "durationMs": 31872,
+      "exitCode": 0,
+      "stopped": null,
+      "completedCommands": 4,
+      "commandNonzeroExits": [],
+      "knownHomeReadFindings": [],
+      "gateResults": [],
+      "fileChanges": []
+    },
+    {
+      "phase": "write",
+      "durationMs": 57360,
+      "exitCode": 0,
+      "stopped": null,
+      "completedCommands": 10,
+      "commandNonzeroExits": [],
+      "knownHomeReadFindings": [],
+      "gateResults": [
+        {
+          "command": "\"${HOME}\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\native\\\\powershell\\\\pwsh.exe\" -Command 'node check-spec.mjs grill/frontend-spec.md'",
+          "exitCode": 0,
+          "result": {
+            "ok": true,
+            "missing": [],
+            "thin": [],
+            "errors": []
+          }
+        }
+      ],
+      "fileChanges": [
+        {
+          "path": "${FIXTURE}\\grill\\frontend-spec.md",
+          "kind": "add"
+        }
+      ]
+    }
+  ],
+  "comparisonWithCorrectedFullMatrix": {
+    "changedSourceFiles": [
+      "lib/pack.ts"
+    ],
+    "sourcePopulation": "Targeted member instruction version only; earlier full-matrix score not substituted"
+  },
+  "manualReview": {
+    "reviewers": [
+      "/root/store_correctness",
+      "/root/review_ci"
+    ],
+    "allMemberRubricCriteria": "pass",
+    "unacceptedNearTicketPlacement": "explicitly unresolved",
+    "retryAction": "not adopted",
+    "fullMatrixReplacement": false
+  }
+}
