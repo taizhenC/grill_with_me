@@ -12,6 +12,8 @@ import { SPEC_HEADINGS } from "@/lib/spec-format";
 
 const execFileAsync = promisify(execFile);
 const CLI = process.env.GRILL_CLI_TEST_BIN ?? join(__dirname, "..", "cli", "grill.mjs");
+// Integration cases include Node startup, local HTTP and protected file I/O.
+const CLI_TEST_TIMEOUT = 20_000;
 
 /**
  * The CLI is the member's entire experience and the host's fallback, and it
@@ -156,18 +158,19 @@ async function run(args: string[], cwd: string, env: Partial<NodeJS.ProcessEnv> 
     const { stdout, stderr } = await execFileAsync(
       process.execPath,
       [CLI, ...args],
-      { cwd, env: { ...process.env, NO_COLOR: "1", ...env } },
+      { cwd, timeout: 10_000, env: { ...process.env, NO_COLOR: "1", ...env } },
     );
     return { code: 0, stdout, stderr };
   } catch (err) {
-    const e = err as { code?: number; stdout?: string; stderr?: string };
+    const e = err as { code?: number; stdout?: string; stderr?: string; killed?: boolean; signal?: string };
+    if (e.killed || e.signal) throw err;
     return { code: e.code ?? 1, stdout: e.stdout ?? "", stderr: e.stderr ?? "" };
   }
 }
 
 const read = (dir: string, path: string) => readFile(join(dir, path), "utf8");
 
-describe("room capability parsing", () => {
+describe("room capability parsing", { timeout: CLI_TEST_TIMEOUT }, () => {
   it("joins existing legacy room links", async () => {
     const dir = await repo();
     const result = await run(["join", `${base}/r/pearl-summit-88`, "--role", "backend", "--no-claim"], dir);
@@ -183,7 +186,7 @@ describe("room capability parsing", () => {
   });
 });
 
-describe("downloaded pack validation", () => {
+describe("downloaded pack validation", { timeout: CLI_TEST_TIMEOUT }, () => {
   const malformed: { name: string; change: (files: PackFile[]) => unknown }[] = [
     { name: "absent files", change: () => ({}) },
     { name: "non-array files", change: () => ({ files: {} }) },
@@ -248,7 +251,7 @@ describe("downloaded pack validation", () => {
   );
 });
 
-describe("pack filesystem safety", () => {
+describe("pack filesystem safety", { timeout: CLI_TEST_TIMEOUT }, () => {
   it.each(["join", "host"])(
     "%s rejects a late directory link before changing earlier files, even with --force",
     async (command) => {
@@ -367,7 +370,7 @@ describe("pack filesystem safety", () => {
   });
 });
 
-describe("join", () => {
+describe("join", { timeout: CLI_TEST_TIMEOUT }, () => {
   it("rejects an unexpected member file before changing any file, even with --force", async () => {
     const dir = await repo();
     await writeFile(join(dir, "AGENTS.md"), "house rules\n");
@@ -521,7 +524,7 @@ describe("join", () => {
   });
 });
 
-describe("publish / republish", () => {
+describe("publish / republish", { timeout: CLI_TEST_TIMEOUT }, () => {
   it("prints copyable custom-origin guidance even when the service came from the environment", async () => {
     const dir = await repo();
     const env = { GRILL_WITH_ME_URL: base };
@@ -585,7 +588,7 @@ describe("publish / republish", () => {
   });
 });
 
-describe("status", () => {
+describe("status", { timeout: CLI_TEST_TIMEOUT }, () => {
   it("shows who has claimed what", async () => {
     const dir = await repo();
     claims = { frontend: "Bo" };
@@ -597,7 +600,7 @@ describe("status", () => {
   });
 });
 
-describe("host", () => {
+describe("host", { timeout: CLI_TEST_TIMEOUT }, () => {
   it("previews the complete host installation without writing in dry-run", async () => {
     const dir = await repo();
     const result = await run(["host", "--base", base, "--dry-run", "--force"], dir);
@@ -639,7 +642,7 @@ describe("host", () => {
   });
 });
 
-describe("check-spec", () => {
+describe("check-spec", { timeout: CLI_TEST_TIMEOUT }, () => {
   const spec = (sections: string[]) =>
     sections.map((h) => `${h}\n\n- something concrete about it.\n`).join("\n");
 
@@ -696,7 +699,7 @@ describe("check-spec", () => {
   });
 });
 
-describe("usage", () => {
+describe("usage", { timeout: CLI_TEST_TIMEOUT }, () => {
   it("with no arguments, tells both audiences what to run", async () => {
     const dir = await repo();
     const { code, stdout } = await run([], dir);
