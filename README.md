@@ -1,347 +1,295 @@
-# grill-with-me
+# Grill With Me
 
-Grill a whole team about their project — each member in their own CLI, with
-their own AI — then hold everyone to the contract that comes out of it.
+Grill With Me helps a team agree on what each person is building before their
+code has to work together. Each teammate uses their own AI agent to answer
+questions about their role. The team turns those answers into a shared contract,
+then checks the implementation against it.
 
-Teams building in parallel fail for one reason above all others: **nobody
-wrote down the contract between them.** Frontend expects `user.name`, backend
-returns `first_name`, and nobody finds out until integration at hour 20.
-grill-with-me extracts that contract by interviewing each person about their
-layer, merges it into one `CONTRACT.md` (plus importable `contract.ts` types
-on TypeScript stacks), and checks the real code against it — with drift
-attributed to a *role*, so you know who to go talk to.
+For example, if the frontend expects `user.name` while the backend returns
+`first_name`, the contract makes the expected response and its owner explicit.
+A later check reports the mismatch with evidence from the code.
 
-**No API keys. No accounts.** Every model call runs on a team member's own
-agent — Claude Code, Cursor, whatever they already use. The web app only
-hands out packs; your specs and your contract never leave your repo.
+**[Open the hosted app](https://grill-with-me.vercel.app)** to publish a project
+brief or open a room link. The service is live on Vercel with Supabase storage.
+The CLI's `0.3.0-beta.1` package is prepared but **not published to npm**; use the
+local archive instructions below. See the
+[deployment report](doc/2026-10-02-cloud-deployment.md) and
+[release runbook](doc/beta-release-runbook.md) for verification and remaining
+beta release gates.
 
-## Host — ten minutes, once
+## How it works
 
-The public beta is being prepared. On 2026-10-02, the default service and npm
-package both returned 404. Until publication is verified, use the source CLI or
-a locally packed archive with a running custom service; see
-[the release runbook](doc/beta-release-runbook.md). The `npx` examples below
-describe onboarding after publication. Package metadata currently selects the
-`beta` tag and supports Node 22.15+ within Node 22, or Node 24.
-
-```bash
-npx grill-with-me host            # installs grill-host + merge-contract here
-```
-
-Then tell your agent: *run the grill-host skill*. It grills you about the
-project, proposes roles, and writes `grill-room.json`.
-
-```bash
-npx grill-with-me publish grill-room.json
-```
-
-You get a room link to share, a host view to watch, and your host token saved
-to `.grill-with-me.json` (and gitignored). Prefer a browser? Drop the file on
-the web app instead — same result.
-
-CLI publishing requires Git to verify that credential files are untracked. It
-creates or updates `.gitignore` before publishing, including in a folder that
-has not run `git init` yet. Credentials are saved by replacing an ignored
-temporary file, with owner-only permissions on Unix. The token is not printed.
-Tracked credential files and linked config/ignore paths cause an error before
-publishing; remove exposed credentials from tracking and rotate them first.
-
-Saved tokens work only for their original normalized origin and room. Changing
-`--base` or `--key` requires an explicit `--token` or `GRILL_WITH_ME_TOKEN` for
-that destination. Explicit republish tokens apply to that invocation and are
-not saved. Publishing and republishing require an HTTPS origin; HTTP is allowed for
-`localhost`, IPv4 loopback, and `::1` development servers. Redirects are refused.
-
-Browser hosts must retain the displayed token. The result and host pages print a
-republish command with that room's `--key`, a `YOUR_HOST_TOKEN` placeholder, and
-the current service origin. Replace the placeholder; explicit tokens apply only
-to that invocation. Publishing again creates a new room. An interrupted response
-can leave publication uncertain; the app does not claim that no room was created.
-
-Keep the current `grill-room.json` with the host's checkout and share it in Git.
-When every role's spec is committed, run `npx grill-with-me merge-preflight`.
-It checks the project context, expected roles, and every role spec, and names
-missing or malformed inputs. It reads files without changing the prior contract.
-Then tell your agent: *run the merge-contract skill*; it must pass the same gate
-before writing. A fresh host uses this local room file and needs no member pack.
-`grill/CONTRACT.md` lands in the repo. Commit it.
-
-Contract skills stage prose/types and finalize one hash-linked revision with
-append-only history. Commit current prose, optional generated types, both
-histories, and state together. `contract-status` distinguishes fresh, stale,
-and offline unknown sources independently of room pack versions, while pending
-role agreement remains visible. Re-merges must explicitly preserve or reconcile
-amendments. TypeScript projects run `contract-typecheck` against real importing
-producer/caller code and their installed project compiler; unused generated
-types are unintegrated. See [the revision and recovery guide](doc/contract-revisions.md)
-and [the producer/consumer example](examples/type-integration/).
-
-## Each member — ten minutes
-
-```bash
-npx grill-with-me join <room-key>     # or paste the whole link
-```
-
-Run it from your repo root. Then run `/grill-my-role` in your editor — or tell
-your agent: *read `.grill-with-me/MY-ROLE.md` and follow it*. Answer the questions;
-commit the spec it writes. Nothing to install, no browser needed after the
-link.
-
-Room links are bearer access: anyone with the link can read the brief, download
-packs, and record role claims. New room keys are `r_` followed by 32 lowercase
-hexadecimal characters, generated from 128 random bits. Share the full link.
-Existing word-word-number links remain valid until their original 30-day expiry;
-republishing does not extend that expiry or strengthen an old key. To replace a
-legacy link, publish a new room and share its new link. New rooms have no legacy
-alias. Room pages and APIs send no-index, no-referrer, and private no-store headers.
-
-Not sure the spec came out right? `npx grill-with-me check-spec` validates it
-against the exact structure `merge-contract` parses — thirty seconds after the
-grill, instead of hours later on your host's machine.
-
-`check-spec` and `merge-preflight` share one validator. It requires the five
-exact ordered H2 sections outside code fences and HTML comments; duplicates,
-suffixed headings, and wholly empty specs fail. Partially thin specs warn and
-pass, so the team can resolve undecided sections explicitly. One person can
-cover two roles by retaining both `grill/<role>-spec.md` files.
-
-Re-running `join` or `host` updates files whose contents still match the last
-successful installation. Local edits and deletions stop the whole installation
-before it writes anything; inspect or back up those files before choosing
-`--force`. Personal text outside the owned `AGENTS.md` fence is preserved exactly.
-Malformed or duplicate fences and invalid local UTF-8 stop installation even
-with `--force`. Specs and contracts are never installation targets.
-
-The member receipt, `.grill-with-me/member.json`, records the normalized server
-origin, room, role, version, and installed content hashes. Its role instructions
-live beside it in `.grill-with-me/MY-ROLE.md`. A saved role is reused only for that
-same origin and room. Member hashes normalize CRLF/LF differences so ordinary Git
-checkout conversion does not look like an edit. Host skills retain a separate
-origin-bound receipt, `.grill-with-me-host.json`.
-
-The CLI excludes the entire `/.grill-with-me/` directory in `.gitignore` and
-checks that Git neither tracks it nor overrides that directory exclusion.
-Nested ignore rules cannot reinclude files below an excluded parent directory.
-Plain folders still work without Git; inside a Git checkout, the Git executable
-is required to verify local state. `--force` cannot bypass tracked-local-state
-rejection. Back up an accidentally tracked local directory, remove it from the
-index, and rejoin with an explicit `--role` after inspecting its contents.
-
-Migration requires choosing `--role` once. Old `grill/.room` and
-`grill/MY-ROLE.md` are retained unchanged as inactive files, including tracked
-files and edited notes. They never select the current member's role. Compare
-old notes with the new local role instructions before retiring them from Git.
-A valid old receipt can verify unchanged shared pack files during migration;
-unverified differences still require inspection and explicit `--force`.
-Commit the updated role-neutral AGENTS block, command adapter, and ignore rules
-with shared project/spec/contract artifacts. Each teammate runs `join` locally.
-
-`join` and `host` validate the complete downloaded file set before installation.
-Only the standard pack paths are accepted, with at most 256 KiB of UTF-8 content
-per file and 1 MiB total. They check all destinations before writing and reject
-symlinks, junctions, hard-linked files, and incompatible directories inside the
-checkout. `--force` cannot bypass these checks; `--dry-run` previews either
-installation without writing or recording claims. Each file is replaced by a
-same-directory atomic rename, and the completed receipt is written last.
-After an I/O failure, resolve the reported filesystem problem and retry the
-same pack: already updated files are recognized, and remaining old files can
-finish. A changed payload that conflicts with a partial update stops for
-inspection. A process killed mid-write can leave `*.grill-tmp`; inspect and
-remove that temporary file before retrying. Keep the checkout idle: this is not
-a multi-file transaction or protection against concurrent local path changes.
-
-## During the build — anyone, repeatedly
-
-The browser ZIP fallback stages `grill-with-me-pack/pack.json` and `IMPORT.md`.
-Extraction does not install files in your checkout. Use the join command for
-validated installation, or have your local agent prepare a reviewed import using
-the instructions; preserve existing instruction fences and edited files. The
-manual path is not the CLI's deterministic installer and requires review.
-
-- **`check-contract`** — compares the repo against the contract and reports
-  drift by role, with a `file:line` for every finding.
-- **`amend-contract`** — for when the *contract* is what's wrong. Amendments
-  land in `grill/CONTRACT-CHANGES.md` and override the original.
-
-Both ship in every member's pack. See `examples/` for a real `grill-room.json`,
-the contract it leads to, and a check report.
-
-## What lands in your repo
-
-```
-AGENTS.md                                  # a fenced block; your own content is kept
-.grill-with-me/                            # ignored; never commit
-  MY-ROLE.md                               # this checkout's role and interview
-  member.json                              # local origin/room/role/version + hashes
-grill/
-  PROJECT.md                               # shared: the brief from the host grill
-.claude/
-  commands/grill-my-role.md                # shared adapter; reads local role instructions
-  skills/check-contract/SKILL.md
-  skills/amend-contract/SKILL.md
-```
-
-## CLI
-
-| Command | Who | Does |
+| Step | What the team does | What it produces |
 |---|---|---|
-| `join <key\|url>` | member | writes your role's pack into this repo |
-| `check-spec [file]` | member | is the spec you just wrote well-formed? |
-| `merge-preflight [room-file]` | host | validates project context, complete role roster, and specs before merge |
-| `host` | host | installs `grill-host` + `merge-contract` here |
-| `publish <file>` | host | publishes `grill-room.json`, prints the link |
-| `republish [file]` | host | replaces the room content, bumps the version |
-| `delete <key\|url>` | host | physically removes the shared room with its host token |
-| `status [key\|url]` | anyone | who has claimed what |
+| 1. Define the project | The host's agent interviews the host about the goal, scope, stack and roles. | `grill-room.json`: a project brief and role roster |
+| 2. Share a room | The host publishes the brief; teammates open the link and select a role. | Role-specific instructions and reusable agent skills |
+| 3. Agree on each layer | Each member's agent interviews them about ownership, interfaces and dependencies. Members commit their specs. | `grill/<role>-spec.md` |
+| 4. Make a shared contract | The host's agent reads every role spec and surfaces disagreements for the team to resolve. | `grill/CONTRACT.md`, revision history and optional TypeScript types |
+| 5. Build and review | Members check real code against the contract and record agreed changes. | `grill/CHECK-REPORT.md` and recorded contract amendments |
 
-Useful flags: `--role <slug>`, `--name <name>`, `--dry-run`, `--force`,
-`--base <url>` (a different deployment), `--token <host-token>`.
+A **room** distributes the published project context and role packs. A **pack**
+is a set of local Markdown instructions, skills and project context. A
+**contract** records concrete agreements such as endpoint paths, request/response
+shapes, data models and who owns each boundary.
 
-## Repo layout
+The web app stores room data and serves packs. The CLI installs files, validates
+spec structure and records contract revisions. Interviews, merging role specs
+and reviewing code happen in your own AI agent. The contract merge combines
+agreements from the specs; Git remains how teammates share those files.
 
-| Path | What |
-|---|---|
-| `skills/` | The product: `grill-host`, `merge-contract`, `check-contract`, `amend-contract` |
-| `app/`, `lib/` | The pack-serving web app (Next.js; Supabase or in-memory store) |
-| `cli/` | The zero-dependency `npx grill-with-me` CLI |
-| `supabase/migrations/` | Rooms, request counters, atomic mutations and cleanup |
-| `plan.md` | The full design, decision log, and delivery plan |
+## Get started
 
-## Running the web app
+You need Git, Node.js 22.15+ within Node 22 or Node 24, and an AI coding agent
+that can read files in your checkout. This application requires no user account
+or model API key; your agent uses its own configured provider.
 
-Use Node.js 24 LTS with npm for development (`.node-version` records the
-major version used by CI). Install the committed dependency versions:
+### Install the CLI from this repository
 
-```bash
-npm ci
-cp .env.example .env.local  # explicit in-memory development mode
-npm run dev
-npm test           # vitest
-npm run typecheck
+Until npm publication, create and install the local archive:
+
+```sh
+git clone https://github.com/taizhenC/grill_with_me.git
+cd grill_with_me
+npm pack ./cli
+npm install --global ./grill-with-me-0.3.0-beta.1.tgz
+grill-with-me --version
 ```
 
-Against a dev server, point the CLI at it:
+Then change into **your team's project checkout**. Keep this tool's source
+checkout separate from the project you are interviewing.
 
-```bash
+You can also run the CLI directly, without installing it, by replacing
+`grill-with-me` in the examples with
+`node "/absolute/path/to/grill_with_me/cli/grill.mjs"`. Quote paths with spaces.
+The CLI has no runtime package dependencies; running the hosted workflow does
+not require installing or starting the Next.js application.
+
+The app and skills currently print `npx grill-with-me ...` commands intended
+for registry onboarding. Until publication, use the installed `grill-with-me`
+command above, or the source CLI, for those same arguments.
+
+### Host: define and publish the project
+
+From your team's repo root:
+
+```sh
+grill-with-me host
+```
+
+Ask your agent: **"Read .claude/skills/grill-host/SKILL.md and follow it."**
+It interviews you about the product, proposes roles and writes
+`grill-room.json`. Review that file, then publish it:
+
+```sh
+grill-with-me publish grill-room.json
+```
+
+Share the room link with your teammates. The CLI saves the host token locally
+and protects its files with Git ignore rules. Keep the token private: it
+authorizes updates and deletion.
+
+You can also upload or paste `grill-room.json` in the
+[hosted app](https://grill-with-me.vercel.app). If you publish in the browser,
+retain the displayed host token. Commit the reviewed `grill-room.json` so the
+host's checkout has the role roster needed for the contract merge.
+
+### Member: choose a role and write a spec
+
+From your own checkout of the team's project, use the full link the host sent:
+
+```sh
+grill-with-me join <room-url> --role frontend --name "Alex"
+```
+
+Replace `frontend` with a role slug from your room. Omit `--role` or `--name`
+to use the interactive prompts.
+
+Ask your agent: **"Read .grill-with-me/MY-ROLE.md and follow it."** In editors
+supporting the installed command adapter, you can use `/grill-my-role`.
+Answer the role-specific questions and review the generated spec:
+
+```sh
+grill-with-me check-spec grill/frontend-spec.md
+```
+
+Commit your spec and the shared project/agent files. Every teammate runs
+`join` locally; personal role selection and receipts stay ignored. Pull the
+other members' committed specs before the host merges them.
+
+The browser's ZIP download contains staging `pack.json` and `IMPORT.md`.
+Extracting it does not install a pack in your checkout. Use the CLI for
+validated installation, or ask your local agent to prepare a reviewed import
+following `IMPORT.md`.
+
+`check-spec` checks the document's structure. It does not establish that
+teammates agree or that the implementation is correct. Unresolved questions
+should remain visible in the spec.
+
+### Host: turn the specs into a contract
+
+Once every expected role spec is present in the host's checkout:
+
+```sh
+grill-with-me merge-preflight grill-room.json
+```
+
+Ask your agent: **"Read .claude/skills/merge-contract/SKILL.md and follow it."**
+It reads the specs, surfaces contradictions and stages the shared contract.
+The skill uses `contract-finalize` to record one revision and its history.
+
+Commit these finalized files together, then ask the team to pull them:
+
+- `grill/CONTRACT.md`
+- `grill/contract.ts`, when generated for a TypeScript project
+- `grill/CONTRACT-CHANGES.md`
+- `grill/CONTRACT-HISTORY.jsonl`
+- `grill/CONTRACT-STATE.json`
+
+Human agreement, spec freshness and file integrity are separate checks.
+`grill-with-me contract-status` reports the current revision and pending role
+agreements. See [contract revisions](doc/contract-revisions.md) for details.
+
+### During the build: check and amend agreements
+
+Member packs install two more skills:
+
+- Ask your agent to read `.claude/skills/check-contract/SKILL.md` to compare
+  real code with the contract. It writes `grill/CHECK-REPORT.md`, with
+  findings attributed to roles and evidence from files and lines.
+- Ask it to read `.claude/skills/amend-contract/SKILL.md` when the agreement
+  needs to change. It updates the current contract through a recorded revision
+  and keeps pending approval visible.
+
+These are **AI skills**, not CLI subcommands. Review their output with the team.
+For TypeScript projects, import the generated types into real producer/caller
+code, then run:
+
+```sh
+grill-with-me contract-typecheck tsconfig.json
+```
+
+This uses your project's installed TypeScript compiler and typecheck command.
+Unused generated types do not count as integration. The
+[type integration example](examples/type-integration/) shows a producer and caller.
+
+## Files in your project
+
+```text
+grill-room.json                  Shared project brief and role roster
+AGENTS.md                        Shared instructions in a preserved fenced block
+.claude/skills/                  Installed host or member skills
+.claude/commands/grill-my-role.md Member command adapter
+grill/
+  PROJECT.md                     Shared project context from the room
+  frontend-spec.md               Example member spec; one file per role
+  CONTRACT.md                    Current finalized agreement
+  contract.ts                    Optional shared TypeScript types
+  CONTRACT-CHANGES.md             Human-readable amendment history
+  CONTRACT-HISTORY.jsonl          Append-only revision records
+  CONTRACT-STATE.json             Current revision and integrity metadata
+  CHECK-REPORT.md                 Agent's implementation review
+.grill-with-me/                  Ignored local role instructions and receipt
+.grill-with-me.json              Ignored host credentials
+.grill-with-me-host.json         Ignored host skill receipt
+.grill-with-me-publish.json      Ignored publication recovery state
+```
+
+Re-running `join` or `host` refreshes unchanged installed files. Local edits
+or deletions stop installation for inspection; `--dry-run` previews changes.
+Use `--force` only after reviewing the affected files. It cannot bypass
+unsafe paths or tracked private state. Specs and contracts are not overwritten
+by pack installation. See the [CLI guide](cli/README.md) for recovery and migration.
+
+## Room commands and privacy
+
+| Command | Purpose |
+|---|---|
+| `status <room-url>` | Show informational role claims |
+| `republish grill-room.json` | Update an existing room using its host token |
+| `publish --recover` | Retry the saved original publication after a lost response |
+| `publish grill-room.json --new-publication` | Explicitly create another room |
+| `delete <room-url>` | Remove the shared room using its host token |
+
+A repeated saved publication can recover the same room for up to 24 hours;
+use `republish` to change that room's content. Republishing increments its
+pack version, which is separate from the local contract revision. Members
+re-run `join` to refresh their packs.
+
+Publishing uploads the project brief and role definitions. Submitted display
+names are stored as informational claims. The service has no upload endpoint
+for source code, role specs, contracts or AI conversations; agent work runs
+through your own editor/provider.
+
+Anyone with a room link can read the brief, download packs and submit claims.
+Room claims are not authenticated accounts. Room access expires 30 days after
+creation; republishing does not extend it. Configured maintenance removes
+expired server data, while deletion preserves local checkouts and downloaded
+files. Read [privacy and retention](doc/privacy-and-retention.md) for the exact
+stored data, access and deletion behavior.
+
+## Develop or host your own service
+
+Use **Node.js 24** for the web application. From this repository:
+
+```sh
+npm ci
+```
+
+Copy `.env.example` to `.env.local` (`cp .env.example .env.local` in a POSIX
+shell, or `Copy-Item .env.example .env.local` in PowerShell), then run:
+
+```sh
+npm run dev
+```
+
+The example environment explicitly selects in-memory development storage.
+Open `http://localhost:3000`. Point the CLI at that service:
+
+```sh
+node cli/grill.mjs host --base http://localhost:3000
 node cli/grill.mjs publish examples/grill-room.json --base http://localhost:3000
 ```
 
-Production: use `GRILL_STORE=supabase` (the default), set `SUPABASE_URL` and
-`SUPABASE_SERVICE_KEY`, apply every file in `supabase/migrations/` in order,
-then deploy to Vercel. Missing or partial credentials reject room API requests
-with HTTP 503 instead of creating temporary rooms. Builds need no secrets.
-`GRILL_STORE=memory` is accepted only in development or tests; production
-rejects it. Never expose the service key to a browser.
-`SUPABASE_URL` requires HTTPS; HTTP is permitted only for loopback endpoints
-in development or tests.
-Room access expires 30 days after creation; physical removal requires a successful
-configured purge. Hosts can run `node cli/grill.mjs delete <room-url>` before or
-after expiry with that room's token. Local packs, specs and credentials remain.
-See [privacy and retention](doc/privacy-and-retention.md) and
-[the operations runbook](doc/operations-retention-runbook.md) for setup/recovery.
-The daily `vercel.json` declaration needs an actual production deployment and
-server-only `CRON_SECRET`; it is not proof of an active schedule.
-If you deploy your own copy, the commands the app prints carry
-`--base` automatically.
+For production, configure `GRILL_STORE=supabase`, server-only `SUPABASE_URL`
+and `SUPABASE_SERVICE_KEY`, a canonical `GRILL_PUBLIC_ORIGIN`, and
+`CRON_SECRET` for maintenance. Apply **all** migrations in
+`supabase/migrations/` in filename order, including
+`0006_explicit_room_privileges.sql`. Production rejects memory storage and
+returns 503 when required storage configuration is missing.
 
-Set `GRILL_PUBLIC_ORIGIN=https://your-service.example` on a public deployment to
-pin printed links and commands to its canonical origin. Otherwise they use the
-validated request Host, infer HTTPS for public hosts, and allow HTTP only for
-literal loopback development. Forwarded host/protocol headers are ignored unless
-`GRILL_TRUST_PROXY=1`; enable that only when your ingress replaces all incoming
-forwarded identity/origin headers. Malformed origins fail without echoing their
-contents. Printed origins contain normalized DNS/IP names and ports, not shell
-expressions, credentials, paths, or query fragments.
+Follow the [release runbook](doc/beta-release-runbook.md) and
+[operations runbook](doc/operations-retention-runbook.md) to verify database
+permissions, deployment, cleanup and recovery. Use `--base <your-service-url>`
+for another deployment.
 
-## Release checks
+## Verification and repository map
 
-CI runs the full test suite, typecheck, and production build on Linux with
-Node.js 24. It also runs the CLI tests and installs the actual npm tarball on
-Windows and Linux with Node.js 22 and 24. These checks need no API keys or
-deployment credentials. Dependency security updates are reviewed separately
-from this functional baseline; the app job blocks moderate, high, and critical
-findings with `npm audit --audit-level=moderate`. Review an advisory's impact and
-update the lock; do not use broad forced upgrades to clear the check.
-
-Chromium onboarding tests run the compiled application with explicit temporary
-in-memory test storage. They exercise file input, paste, clipboard, keyboard role
-claims/takeover, printed browser-host republishing through the actual CLI, staged
-ZIP downloads, and interrupted/malformed/oversized responses. This fixture server
-does not validate a hosted Supabase project or a deployed browser session.
-
-```bash
-npx --no-install playwright install --only-shell chromium
+```sh
+npm test
+npm run typecheck
 npm run build
-npm run test:browser
-```
-
-Run the distribution checks locally after `npm ci`:
-
-```bash
-node scripts/verify-cli-package.mjs
-npm run build
+npm run test:runtime
 node scripts/verify-skill-traces.mjs
+node scripts/verify-cli-package.mjs
 ```
 
-The package check uses a temporary installation, verifies the installed
-command and package version, and tests valid and invalid spec input. The
-trace check ensures both pack-serving routes include all four skill files
-in the production bundle. Neither command publishes a package or deploys the
-app.
+CI also runs Chromium onboarding and all four PostgreSQL suites, plus CLI
+checks on Windows and Linux with Node 22 and 24. Browser checks require the
+matching Playwright Chromium installation. Database checks require an empty,
+disposable PostgreSQL database; see the release runbook before running
+`npm run test:db`. Agent evaluations and team pilots are separate release gates.
 
-Persistence checks run against a disposable PostgreSQL 17 database in CI.
-Run them locally with `GRILL_TEST_DATABASE_URL` pointing to an **empty** admin
-database named `grill_test` or `grill_test_*`, then `npm run test:db`. The
-fixture applies the real migrations, creates Supabase-style test roles, and
-checks contended claims, committed versions, expiry after lock waits, role
-removal, authorization, RPC privileges, and RLS. It removes its table and
-functions when finished; use a temporary database because the fixture roles
-remain in the cluster. The `pg` driver is a development dependency only.
+| Path | Contents |
+|---|---|
+| `skills/` | The four reusable AI workflows |
+| `app/`, `lib/` | Next.js web app, pack rendering and room storage |
+| `cli/` | CLI and installation/revision helpers |
+| `supabase/migrations/` | Durable rooms, atomic mutations, quotas and retention |
+| `tests/`, `scripts/`, `evals/` | Automated checks and agent evaluation tooling |
+| `examples/` | Sample room, contract, report and TypeScript integration |
+| `doc/` | Guides and dated completion reports |
 
-Claims for different roles survive concurrent updates; claims for the same
-role retain the existing last-write-wins behavior. Concurrent authorized
-republishes are serialized, each returns its actual committed version, and
-the last committed content wins. Removing a role also removes its claim.
-Apply migration `0002_atomic_room_mutations.sql` before deploying this server
-version. Vanilla PostgreSQL checks do not replace a deployment smoke test
-against the configured Supabase project's API and service credentials.
-
-Room APIs, skill downloads, and join/host pages share durable request budgets.
-Limits use fixed, aligned one-hour windows:
-
-| Operation | Per client IP | Global per deployment database |
-|---|---:|---:|
-| Create | 20 | 500 |
-| Read / download / room page | 1,000 | 10,000 |
-| Claim | 120 | 1,000 |
-| Republish / delete (shared) | 60 | 500 |
-
-Vercel supplies sanitized client-IP forwarding headers, so `VERCEL=1` enables
-per-IP budgeting there. On other hosts, requests share one conservative
-unknown-client bucket unless `GRILL_TRUST_PROXY=1` is explicitly enabled for
-an ingress that **overwrites incoming `X-Forwarded-For`**. Arbitrary caller
-forwarding headers are ignored. Only service-key-HMAC client identifiers are
-stored in quota rows; raw IPs and room tokens are absent.
-[Vercel request headers](https://vercel.com/docs/headers/request-headers#x-forwarded-for)
-
-Exhausted budgets return HTTP 429 with `Retry-After`; unavailable quota storage
-returns 503 instead of falling back to instance-local limits. Denied budgets
-do not charge the other counter, and global exhaustion creates no new client
-rows. This is a fixed-window limiter: a burst immediately before and after a
-window boundary can consume both windows' budgets. Shared networks use one
-IP budget. Counters older than their expired window plus one hour are removed
-in batches of 128 on subsequent traffic for that operation. Configured maintenance
-also removes idle stale client rows across operations.
-
-Run `npm run test:runtime` after `npm run build` to verify the actual compiled
-API and page proxy responses, including 429, cross-bundle backend 503, host
-token 403, expired/missing room 404, and invalid production storage 503. These
-checks use controlled HTTP RPC responses; `npm run test:db` separately proves
-real PostgreSQL quota concurrency and persistence across an application restart.
-Apply migration `0003_shared_request_quotas.sql` before deploying this version.
-Host deletion and retention also require `0004_retention_and_room_deletion.sql`.
-Recoverable publication requires `0005_publication_recovery.sql`; apply it before
-deploying clients that send recovery capabilities. See the
-[publication recovery protocol](doc/publication-recovery-protocol.md).
-Database checks include physical deletion, concurrent bounded cleanup, rollback
-and browser-role denial; compiled checks cover host DELETE and maintenance GET/POST.
+See [the original design](plan.md) and
+[the upgrade plan](upgrade-plan.md) for project decisions and priorities.
+Report problems through the
+[issue tracker](https://github.com/taizhenC/grill_with_me/issues).

@@ -2,12 +2,15 @@
 
 Install host skills, publish a project room, and install each member's role pack.
 Interviews and contract checks run in your own AI editor. The CLI has no runtime
-dependencies and supports Node 22.15+ and Node 24.
+dependencies and supports Node 22.15+ within Node 22, or Node 24.
 
 This source package is being prepared for its first public beta. Registry
-publication and the default hosted service are pending verification. Until a
-release is published, install a locally packed archive and use your own running
-service. The application repository is
+publication remains pending. The default hosted service is live at
+[grill-with-me.vercel.app](https://grill-with-me.vercel.app). Until a release is
+published, install a locally packed archive or use the source CLI. The root
+[README](https://github.com/taizhenC/grill_with_me#readme) explains setup against
+the hosted service; the local-service example below is optional. The application
+repository is
 [taizhenC/grill_with_me](https://github.com/taizhenC/grill_with_me).
 
 From the repository:
