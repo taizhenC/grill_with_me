@@ -106,8 +106,12 @@ describe("agent evidence handling", () => {
   });
 
   it("terminates an overlong fixture process and records failure rather than manufacturing a result", async () => {
-    const result = await invoke(process.execPath, ["-e", "setInterval(() => {}, 1000)"], await temporary(), "", 80);
+    const wrapper = `const { spawn } = require('node:child_process');
+spawn(process.execPath, ['-e', "console.log('grandchild-ready'); setInterval(() => {}, 1000)"], { stdio: 'inherit' });
+setInterval(() => {}, 1000);`;
+    const result = await invoke(process.execPath, ["-e", wrapper], await temporary(), "", 600);
     expect(result.stopped).toBe("timeout");
+    expect(result.stdout).toContain("grandchild-ready");
     expect(result.durationMs).toBeLessThan(10_000);
   });
 });

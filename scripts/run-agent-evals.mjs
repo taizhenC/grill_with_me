@@ -30,7 +30,10 @@ async function terminate(child) {
   if (process.platform === "win32") await new Promise(resolvePromise => {
     execFile("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true }, () => resolvePromise());
   });
-  else child.kill("SIGKILL");
+  else {
+    try { process.kill(-child.pid, "SIGKILL"); }
+    catch (error) { if (error.code !== "ESRCH") throw error; }
+  }
 }
 
 export async function invoke(command, args, cwd, prompt, timeoutMs = MAX_CALL_MS, artifactPath = null) {
@@ -38,6 +41,7 @@ export async function invoke(command, args, cwd, prompt, timeoutMs = MAX_CALL_MS
   const start = Date.now();
   return new Promise(resolvePromise => {
     const child = spawn(command, args, { cwd, windowsHide: true, shell: false,
+      detached: process.platform !== "win32",
       stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, NO_COLOR: "1" } });
     let stdout = "", stderr = "", bytes = 0, stopped = null, firstObservedArtifact = null;
     const watcher = artifactPath ? setInterval(() => {
@@ -45,7 +49,10 @@ export async function invoke(command, args, cwd, prompt, timeoutMs = MAX_CALL_MS
         if (content && firstObservedArtifact === null) firstObservedArtifact = content;
       }).catch(() => {});
     }, 10) : null;
-    const stop = reason => { if (!stopped) { stopped = reason; void terminate(child); } };
+    const stop = reason => { if (!stopped) { stopped = reason; void terminate(child).catch(error => {
+      stderr += `\nFailed to terminate owned process group: ${error.message}`;
+      child.kill("SIGKILL");
+    }); } };
     const timer = setTimeout(() => stop("timeout"), timeoutMs);
     child.stdout.on("data", chunk => {
       bytes += chunk.length;
