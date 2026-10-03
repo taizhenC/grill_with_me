@@ -2,7 +2,7 @@
 
 This kit measures the current installed member instructions with real account-local agents. It never calls a mocked model. CI tests fixture construction, bounded process handling and evidence handling; those tests do not establish agent behavior or filesystem confinement.
 
-Install repository dependencies, authenticate your local Claude Code or Codex CLI yourself, and run from this repository with Node 24:
+Install repository dependencies, authenticate your local Claude Code or Codex CLI yourself, and run from this repository with Node 24 (recommended for the app) or Node 22 for the evaluation tooling:
 
 ```sh
 node scripts/run-agent-evals.mjs --agent claude --out evals/runs/NEW-RUN/claude --case member-frontend
@@ -25,6 +25,6 @@ Records include frozen fixture inputs, hidden grading expectations, exact prompt
 
 Grade behavior manually using [the rubric](rubric.md). A valid heading structure alone does not show factual agreements, usable questions or correct drift. Commit dated evidence and a completion report under `doc/` even when a gate fails. The [human pilot worksheet](../doc/team-pilot-worksheet.md) is a separate release gate.
 
-For existing records, stop all live runs before `node scripts/sanitize-agent-evidence.mjs evals/runs/YOUR-RUN`. The sanitizer accepts only an existing contained directory, rejects symlinks/junctions in its selected path and tree, and rejects hardlinked/special files before any write. Opened files are checked against the preflight ownership snapshot. This is bounded maintenance of trusted stopped records, not race-proof filesystem confinement against a hostile concurrent actor.
+For existing records, stop all live runs before `node scripts/sanitize-agent-evidence.mjs evals/runs/YOUR-RUN`. The sanitizer accepts only an existing contained directory, rejects symlinks/junctions in its selected path and tree, and rejects hardlinked/special files before any write. Pathnames and opened files are checked against their respective exact preflight identity snapshots; this avoids the observed Windows Node22.15 pathname/descriptor device mismatch without dropping device checks. Node22.15 and Node24.21 sanitizer subprocess checks are recorded in [the compatibility report](../doc/2026-10-02-evaluation-file-identity.md). This is bounded maintenance of trusted stopped records, not race-proof filesystem confinement against a hostile concurrent actor.
 
 Implementation references: [Claude programmatic runs](https://code.claude.com/docs/en/headless), [Claude CLI reference](https://code.claude.com/docs/en/cli-reference), [Codex non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode), [Codex Windows configuration](https://learn.chatgpt.com/docs/config-file/config-reference), and [OpenAI's skills-evaluation guidance](https://developers.openai.com/blog/eval-skills). Local `--help` takes precedence when installed flags differ.
