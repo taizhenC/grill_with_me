@@ -41,10 +41,12 @@ try {
   end $$;`);
   assert.equal((await admin.query("select rolbypassrls from pg_roles where rolname='service_role'")).rows[0].rolbypassrls, true);
   ownsFixture = true;
-  for (const file of ["0001_rooms.sql", "0002_atomic_room_mutations.sql", "0003_shared_request_quotas.sql", "0004_retention_and_room_deletion.sql", "0004_retention_and_room_deletion.sql"]) {
+  for (const file of ["0001_rooms.sql", "0002_atomic_room_mutations.sql", "0003_shared_request_quotas.sql", "0004_retention_and_room_deletion.sql", "0004_retention_and_room_deletion.sql", "0006_explicit_room_privileges.sql"]) {
     await admin.query(await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), "utf8"));
   }
-  await admin.query("grant usage on schema public to service_role,anon,authenticated; grant select,insert,update on public.rooms to service_role; grant select on public.rooms,public.request_quotas to anon,authenticated");
+  // The room migration supplies server access. These browser SELECT grants
+  // intentionally exercise the independent RLS fallback on disposable data.
+  await admin.query("grant usage on schema public to service_role,anon,authenticated; grant select on public.rooms,public.request_quotas to anon,authenticated");
   for (let i = 0; i < 8; i++) {
     const worker = new pg.Client({ ...options, application_name: applicationName }); workers.push(worker);
     await worker.connect(); await worker.query("set role service_role");
