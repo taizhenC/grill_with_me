@@ -1,0 +1,26 @@
+{
+  "results": [
+    {
+      "phase": "interview",
+      "exitCode": 0,
+      "stopped": null
+    },
+    {
+      "phase": "write",
+      "exitCode": 1,
+      "stopped": "timeout"
+    }
+  ],
+  "modifications": [],
+  "added": [],
+  "target": "grill/database-spec.md",
+  "artifactExists": false,
+  "structure": null,
+  "manualGrade": "Pending; structure validity is not a behavior grade.",
+  "writeScopeOk": true,
+  "readScope": {
+    "knownHomeReadFindings": [],
+    "fullyConfined": false,
+    "review": "Recomputed from retained selected traces after fixture containment fix; manual full trace review still required."
+  }
+}
