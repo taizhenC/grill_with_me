@@ -66,4 +66,20 @@ describe("safe service database failures", () => {
     await rejection;
     expect(signal?.aborted).toBe(true);
   });
+
+  it("returns a committed version after the provider recovers from a503 drill", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    let unavailable = true;
+    const db = createClient("https://database.invalid", secret, { auth: { persistSession: false }, global: {
+      fetch: async () => new Response(JSON.stringify(unavailable ? { code: "XX000", message: secret } : 8), {
+        status: unavailable ? 500 : 200, headers: { "content-type": "application/json" },
+      }),
+    } });
+    setStore(new SupabaseStore(db));
+    expect((await republish(post(`/api/room/${key}/republish`, raw), params)).status).toBe(503);
+    unavailable = false;
+    const restored = await republish(post(`/api/room/${key}/republish`, raw), params);
+    expect(restored.status).toBe(200);
+    expect(await restored.json()).toEqual({ key, version: 8 });
+  });
 });

@@ -39,6 +39,15 @@ the application stops starting batches after 20 seconds or 20 batches.
 
 ## Results and monitoring
 
+Room reads and mutations have a five-second headers/body database deadline.
+Creation shares that budget across known key-collision retries. Operational
+failures return no-store 503 with Retry-After: 5 and emit a fixed JSON event
+`room_storage_unavailable` with operation `create`, `read`, `claim`, `republish`,
+`delete` or `configuration`. Do not append raw exception/backend messages.
+Monitor these events and HTTP status counts. A timeout or 503 can follow a
+committed write: check the prior outcome, or use saved publication recovery,
+before retrying. Restoring the database does not roll back earlier requests.
+
 Each atomic database batch deletes at most 1,000 expired rooms, 1,000 expired
 publication ledger entries and 2,000 client hashes whose window expired at least
 one hour ago. Global counters remain. One invocation removes at most 20,000 rooms,
