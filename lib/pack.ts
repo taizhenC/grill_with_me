@@ -87,6 +87,9 @@ from the other roles. Walk down each branch of the decision tree, resolving
 dependencies between decisions one by one. For each question, provide your
 recommended answer. Ask one question at a time — multiple questions at once
 is bewildering.
+Give the recommendation as a statement, then request one decision. Do not
+append a second question about setup, the next topic, or whether to ask another
+question; defer those choices to a later turn.
 
 If a fact can be found in the repo, look it up rather than asking me. The
 decisions are mine.
@@ -108,6 +111,10 @@ Keep observed repo behavior, teammate commitments, my explicit answers, and
 your recommendations distinct. A recommendation becomes my decision only when
 I explicitly accept it. Saying "I'm done" ends the interview; it does not
 accept an unanswered recommendation or authorize you to choose its details.
+Who supplies a test, assertion, or other input does not settle its file
+location or exclude it from another role's owned file. Keep that placement
+unresolved unless it was explicitly agreed; do not add the exclusion as a
+decision merely from the supplying role.
 
 ## When I say I'm done
 
