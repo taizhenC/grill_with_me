@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getStore, toPublic } from "@/lib/store";
+import { getStore, toPublic, NotFoundError, ForbiddenError } from "@/lib/store";
 import { storageUnavailable } from "@/lib/store-response";
 import { renderPack } from "@/lib/pack";
 import { isRoomKey } from "@/lib/keys";
@@ -60,4 +60,28 @@ export async function GET(
   }
   const files = renderPack(stored.room, roleSlug, stored.key, stored.version);
   return NextResponse.json({ ...summary, role: roleSlug, files });
+}
+
+/** DELETE /api/room/[key] — remove the database row with the original host token. */
+export async function DELETE(request: Request, { params }: { params: Promise<{ key: string }> }) {
+  // Deletion shares the host-mutation budget with republish.
+  const limited = await enforceRequestLimit(request, "republish");
+  if (limited) return limited;
+  const { key } = await params;
+  if (!isRoomKey(key)) return NextResponse.json({ error: "room not found" }, { status: 404 });
+  const auth = request.headers.get("authorization") ?? "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!token) return NextResponse.json({ error: "missing Authorization: Bearer <hostToken>" }, { status: 401 });
+  try {
+    await getStore().delete(key, token);
+    return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } });
+  } catch (error) {
+    const unavailable = storageUnavailable(error);
+    if (unavailable) return unavailable;
+    if (error instanceof NotFoundError) return NextResponse.json({ error: "room not found" }, { status: 404 });
+    if (error instanceof ForbiddenError) return NextResponse.json({ error: "bad host token" }, { status: 403 });
+    return NextResponse.json({ error: "room deletion is unavailable; check room status before retrying" }, {
+      status: 503, headers: { "cache-control": "no-store", "retry-after": "5" },
+    });
+  }
 }
