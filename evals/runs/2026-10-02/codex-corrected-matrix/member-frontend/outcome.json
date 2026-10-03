@@ -1,0 +1,33 @@
+{
+  "results": [
+    {
+      "phase": "interview",
+      "exitCode": 0,
+      "stopped": null
+    },
+    {
+      "phase": "write",
+      "exitCode": 0,
+      "stopped": null
+    }
+  ],
+  "modifications": [],
+  "added": [
+    "grill/frontend-spec.md"
+  ],
+  "target": "grill/frontend-spec.md",
+  "artifactExists": true,
+  "structure": {
+    "ok": true,
+    "missing": [],
+    "thin": [],
+    "errors": []
+  },
+  "writeScopeOk": true,
+  "readScope": {
+    "knownHomeReadFindings": [],
+    "fullyConfined": false,
+    "review": "Manual trace review required; write scope does not prove read confinement."
+  },
+  "manualGrade": "Pending; structure validity is not a behavior grade."
+}
