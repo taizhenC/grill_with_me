@@ -99,8 +99,8 @@ describe("protected retention maintenance", () => {
     vi.spyOn(console, "info").mockImplementation(() => {});
     const result = await purge(request()); expect(result.status).toBe(200);
     expect(result.headers.get("cache-control")).toBe("no-store");
-    expect(await result.json()).toEqual({ roomsDeleted: 1, quotaBucketsDeleted: 1, batches: 1, needsAnotherRun: false });
-    expect(await (await manualPurge(request(secret, "POST"))).json()).toEqual({ roomsDeleted: 0, quotaBucketsDeleted: 0, batches: 1, needsAnotherRun: false });
+    expect(await result.json()).toEqual({ roomsDeleted: 1, quotaBucketsDeleted: 1, publicationRequestsDeleted: 0, batches: 1, needsAnotherRun: false });
+    expect(await (await manualPurge(request(secret, "POST"))).json()).toEqual({ roomsDeleted: 0, quotaBucketsDeleted: 0, publicationRequestsDeleted: 0, batches: 1, needsAnotherRun: false });
   });
 
   it("caps a backlog at 20 validated atomic RPC batches and reports further work", async () => {
@@ -108,10 +108,10 @@ describe("protected retention maintenance", () => {
     const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const req = new Request(input, init); expect(new URL(req.url).pathname).toBe("/rest/v1/rpc/purge_expired_data");
       expect(await req.json()).toEqual({ p_room_limit: 1000, p_quota_limit: 2000 });
-      return new Response(JSON.stringify({ roomsDeleted: 1000, quotaBucketsDeleted: 2000 }), { headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({ roomsDeleted: 1000, quotaBucketsDeleted: 2000, publicationRequestsDeleted: 1000 }), { headers: { "content-type": "application/json" } });
     });
     vi.stubGlobal("fetch", fetch);
-    expect(await purgeExpiredData()).toEqual({ roomsDeleted: 20000, quotaBucketsDeleted: 40000, batches: 20, needsAnotherRun: true });
+    expect(await purgeExpiredData()).toEqual({ roomsDeleted: 20000, quotaBucketsDeleted: 40000, publicationRequestsDeleted: 20000, batches: 20, needsAnotherRun: true });
     expect(fetch).toHaveBeenCalledTimes(PURGE_MAX_BATCHES);
   });
 
@@ -119,9 +119,9 @@ describe("protected retention maintenance", () => {
     vi.stubEnv("GRILL_STORE", "supabase"); vi.stubEnv("SUPABASE_URL", "https://fixture.supabase.co"); vi.stubEnv("SUPABASE_SERVICE_KEY", "private-test-key");
     let ticks = 0;
     vi.spyOn(performance, "now").mockImplementation(() => ticks++ < 2 ? 0 : 20_001);
-    const fetch = vi.fn(async () => new Response(JSON.stringify({ roomsDeleted: 1000, quotaBucketsDeleted: 2000 }), { headers: { "content-type": "application/json" } }));
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ roomsDeleted: 1000, quotaBucketsDeleted: 2000, publicationRequestsDeleted: 1000 }), { headers: { "content-type": "application/json" } }));
     vi.stubGlobal("fetch", fetch);
-    expect(await purgeExpiredData()).toEqual({ roomsDeleted: 1000, quotaBucketsDeleted: 2000, batches: 1, needsAnotherRun: true });
+    expect(await purgeExpiredData()).toEqual({ roomsDeleted: 1000, quotaBucketsDeleted: 2000, publicationRequestsDeleted: 1000, batches: 1, needsAnotherRun: true });
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 

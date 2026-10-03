@@ -66,6 +66,16 @@ Then tell your agent: *run the merge-contract skill*; it must pass the same gate
 before writing. A fresh host uses this local room file and needs no member pack.
 `grill/CONTRACT.md` lands in the repo. Commit it.
 
+Contract skills stage prose/types and finalize one hash-linked revision with
+append-only history. Commit current prose, optional generated types, both
+histories, and state together. `contract-status` distinguishes fresh, stale,
+and offline unknown sources independently of room pack versions, while pending
+role agreement remains visible. Re-merges must explicitly preserve or reconcile
+amendments. TypeScript projects run `contract-typecheck` against real importing
+producer/caller code and their installed project compiler; unused generated
+types are unintegrated. See [the revision and recovery guide](doc/contract-revisions.md)
+and [the producer/consumer example](examples/type-integration/).
+
 ## Each member — ten minutes
 
 ```bash
@@ -330,5 +340,8 @@ checks use controlled HTTP RPC responses; `npm run test:db` separately proves
 real PostgreSQL quota concurrency and persistence across an application restart.
 Apply migration `0003_shared_request_quotas.sql` before deploying this version.
 Host deletion and retention also require `0004_retention_and_room_deletion.sql`.
+Recoverable publication requires `0005_publication_recovery.sql`; apply it before
+deploying clients that send recovery capabilities. See the
+[publication recovery protocol](doc/publication-recovery-protocol.md).
 Database checks include physical deletion, concurrent bounded cleanup, rollback
 and browser-role denial; compiled checks cover host DELETE and maintenance GET/POST.

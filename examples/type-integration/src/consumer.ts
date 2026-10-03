@@ -1,0 +1,5 @@
+import type { RankResponse } from "../grill/contract";
+
+export function renderScores(response: RankResponse): string[] {
+  return response.trails.map((trail) => `${trail.id}: ${trail.shadeScore}`);
+}

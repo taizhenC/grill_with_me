@@ -1,11 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CopyLine, CopyButton } from "./copy";
 import { browserErrors, browserJson } from "@/lib/browser-api";
 import { MAX_ROOM_JSON_BYTES, parseGrillRoom } from "@/lib/schema";
 import { republishCommand } from "@/lib/commands";
 import { isRoomKey } from "../cli/room-key.mjs";
+import { discardPublication, loadPublication, publicationExpiry, savePublication, type BrowserPublication } from "@/lib/browser-publication";
 
 type PublishResult = { key: string; hostToken: string; url: string };
 
@@ -26,34 +27,79 @@ export function PublishPanel({
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [pasted, setPasted] = useState("");
+  const [attempt, setAttempt] = useState<BrowserPublication | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [ready, setReady] = useState(false);
   const pending = useRef(false);
 
-  async function publish(input: string | File) {
+  useEffect(() => {
+    try {
+      const previous = loadPublication(window.sessionStorage, origin);
+      setAttempt(previous);
+      setSaved(previous !== null);
+    } catch {
+      setSaved(true);
+      setErrors(["Could not read this tab's saved publication. Enable session storage or discard the saved attempt before publishing."]);
+    } finally { setReady(true); }
+  }, [origin]);
+
+  function forgetPublication() {
     if (pending.current) return;
+    try {
+      discardPublication(window.sessionStorage);
+      setAttempt(null);
+      setSaved(false);
+      setErrors([]);
+    } catch {
+      setErrors(["Could not clear this tab's saved publication. Enable session storage before trying again."]);
+    }
+  }
+
+  async function publish(input?: string | File) {
+    if (pending.current || !ready || (input !== undefined && saved)) return;
     pending.current = true;
     setBusy(true);
     setErrors([]);
-    let sent = false;
+    let phase: "read" | "save" | "send" = "read";
     try {
-      if (typeof input !== "string") {
-        if (!/\.json$/i.test(input.name)) { setErrors([`${input.name} isn't a .json file — choose grill-room.json`]); return; }
-        if (input.size > MAX_ROOM_JSON_BYTES) { setErrors(["Room JSON exceeds the 256 KiB upload limit."]); return; }
+      let current = attempt;
+      if (input !== undefined) {
+        if (typeof input !== "string") {
+          if (!/\.json$/i.test(input.name)) { setErrors([`${input.name} isn't a .json file — choose grill-room.json`]); return; }
+          if (input.size > MAX_ROOM_JSON_BYTES) { setErrors(["Room JSON exceeds the 256 KiB upload limit."]); return; }
+        }
+        const raw = typeof input === "string" ? input : await input.text();
+        const parsed = parseGrillRoom(raw);
+        if (!parsed.ok) { setErrors(parsed.errors); return; }
+        phase = "save";
+        current = savePublication(window.sessionStorage, origin, raw);
+        setAttempt(current);
+        setSaved(true);
       }
-      const raw = typeof input === "string" ? input : await input.text();
-      const parsed = parseGrillRoom(raw);
-      if (!parsed.ok) { setErrors(parsed.errors); return; }
-      sent = true;
-      const { response: res, body } = await browserJson("/api/rooms", { method: "POST", body: raw });
-      if (!res.ok) {
-        setErrors(browserErrors(body, res.status));
+      if (!current) return;
+      let expiresAt;
+      try { expiresAt = new Date(publicationExpiry(current)).toISOString(); }
+      catch {
+        setErrors(["Publication recovery has expired or cannot be used. Check the original outcome before discarding this attempt and creating another room."]);
         return;
       }
-      if (!isRoomKey(body.key) || typeof body.hostToken !== "string" || !/^[A-Za-z0-9_-]{32}$/.test(body.hostToken)) throw new Error("invalid publish acknowledgement");
+      phase = "send";
+      const { response: res, body } = await browserJson("/api/rooms", { method: "POST", body: current.body,
+        headers: { "Content-Type": "application/json", "Idempotency-Key": current.capability } });
+      if (!res.ok) {
+        setErrors(browserErrors(body, res.status).map((message) => message.replaceAll(current.capability, "[redacted]")));
+        return;
+      }
+      const recovery = body.recovery;
+      if (!isRoomKey(body.key) || typeof body.hostToken !== "string" || !/^[A-Za-z0-9_-]{32}$/.test(body.hostToken)
+        || !recovery || typeof recovery !== "object" || !("expiresAt" in recovery) || recovery.expiresAt !== expiresAt
+        || !("replayed" in recovery) || typeof recovery.replayed !== "boolean") throw new Error("invalid publish acknowledgement");
       setResult({ key: body.key, hostToken: body.hostToken, url: `/r/${body.key}` });
     } catch {
-      setErrors([sent
-        ? "Could not confirm publication. A room may have been created, but its host token was not received. Check the connection before publishing again; a new attempt can create another room."
-        : "Could not read that file. Choose it again or paste the JSON below."]);
+      setErrors([phase === "send"
+        ? "Could not confirm publication. A room may have been created. Recover the saved publication below to retrieve the same room and host token."
+        : phase === "save" ? "Could not save publication recovery in this tab. Enable session storage before publishing. No request was sent."
+          : "Could not read that file. Choose it again or paste the JSON below."]);
     } finally {
       setBusy(false);
       pending.current = false;
@@ -81,7 +127,7 @@ export function PublishPanel({
         <div className="card">
           <p>
             <strong>Your host token</strong> — the only way to re-publish this
-            room. Shown once.
+            room or delete it.
           </p>
           <CopyLine value={result.hostToken} label="copy token" />
           <p className="muted small">
@@ -91,6 +137,15 @@ export function PublishPanel({
             for that invocation and is not saved.
           </p>
           <CopyLine value={republishCommand(origin, result.key)} label="copy republish command" />
+          <p className="muted small">
+            Recovery is available for 24 hours, including across reloads. The
+            brief and private capability stay in this tab until cleared or the
+            browser discards the session. Closing the tab can lose recovery.
+            Clear it here after saving your host token.
+          </p>
+          {saved ? <button onClick={forgetPublication}>I saved my host token</button>
+            : <p className="muted small">Recovery cleared from this tab.</p>}
+          {errors.length > 0 && <p className="error" role="alert" aria-label="Publication status">{errors.join("\n")}</p>}
         </div>
 
         <h2>Next</h2>
@@ -118,6 +173,17 @@ export function PublishPanel({
 
   return (
     <section>
+      {saved && <div className="card">
+        <h3>Saved publication</h3>
+        <p>Recover this attempt to receive the same room and host token. The brief and
+          private recovery capability stay in this tab until cleared or the browser
+          discards the session. Recovery expires after 24 hours. Closing the tab can
+          lose it. Keep this browser session private.</p>
+        {attempt && <button disabled={busy} onClick={() => void publish()}>Recover saved publication</button>}
+        <p className="muted small">Discarding recovery does not delete a room. Check
+          the original outcome first; a new publication can create another room.</p>
+        <button disabled={busy} onClick={forgetPublication}>Discard saved attempt</button>
+      </div>}
       <label
         className={`drop${dragging ? " dragging" : ""}${busy ? " busy" : ""}`}
         onDragOver={(e) => {
@@ -136,7 +202,7 @@ export function PublishPanel({
           type="file"
           className="sr-only"
           accept=".json,application/json"
-          disabled={busy}
+          disabled={busy || saved || !ready}
           aria-label="Choose grill-room.json"
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -164,7 +230,7 @@ export function PublishPanel({
           rows={6}
         />
         <button
-          disabled={busy || pasted.trim().length === 0}
+          disabled={busy || saved || !ready || pasted.trim().length === 0}
           onClick={() => void publish(pasted)}
         >
           Publish this

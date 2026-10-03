@@ -12,6 +12,15 @@ names submitted as informational claims, and creation/expiry timestamps. Host
 tokens are stored in the server database and never returned by member reads.
 The Supabase service credential remains on the application server.
 
+Recoverable publication also stores hashes of the request capability and validated
+payload, its origin, issuance/expiry times and a nullable room reference. The raw
+capability, room brief and host token are not copied into this ledger. Its bearer
+capability can recover the original host token for 24 hours after issuance, unless
+the room was deleted or expired. Keep it private. Eligible ledger rows are removed
+by configured maintenance after that window; removal can be delayed by failures
+or busy rows. A retry with the expired capability cannot create another room.
+See [the recovery protocol](publication-recovery-protocol.md).
+
 The application has no upload endpoint for role specs, contracts, source code or
 AI conversations; those remain in the team's checkout/editor workflow. Text put
 into a room brief or display name is uploaded. Do not put secrets there.

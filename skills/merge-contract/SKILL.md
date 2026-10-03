@@ -23,6 +23,15 @@ Use that project context and role roster, even if this host has no
 specs after the gate passes. A member may own more than one role; each role
 still needs its separate spec file.
 
+Run `npx grill-with-me contract-status` and read the current contract plus
+`grill/CONTRACT-HISTORY.jsonl` and `grill/CONTRACT-CHANGES.md` when present.
+Record the current `revision.id` as the proposal's exact parent. Contract
+revision IDs are separate from room pack versions. Stop on integrity conflicts
+or unfinished finalization; do not overwrite a journal or guess a parent.
+An unrecorded old contract requires explicit adoption with the legacy history
+hash returned by status. Preserve the prior prose and typed agreements when
+adding stable IDs; show the user any proposed agreement changes first.
+
 If the command exits nonzero, is unavailable, or reports `ok: false`, STOP and
 report its errors. Do not write or replace `grill/CONTRACT.md`,
 `grill/contract.ts`, or amendment history. Ask for missing role specs or a
@@ -64,16 +73,24 @@ own" / "Decisions made" entry in the other role's spec:
 Never resolve a contradiction yourself. Your job is to notice and name;
 deciding is theirs.
 
-## Step 3 — write grill/CONTRACT.md
+## Step 3 — stage grill/CONTRACT.next.md
+
+Stage new prose rather than replacing the current contract directly. Assign
+each concrete agreement a stable, unique H3 marker such as
+`### [agreement:api.rank.response]`. IDs use lowercase letters/digits with
+dot/hyphen separators; retain an ID when its agreement changes. Use at most
+100 blocks, each containing its concrete agreement. Do not manufacture an
+agreement merely to satisfy the format gate.
 
 Structure:
 
 ```markdown
 # Contract — <project name>
-_Generated <date> from N role specs. Amendments in CONTRACT-CHANGES.md override this file._
+_Current agreement from N role specs. Revision receipts in CONTRACT-STATE.json; history in CONTRACT-CHANGES.md._
 
 ## Endpoints
-<!-- METHOD /path — implementing file — request shape — response shape — owner role -->
+### [agreement:api.rank.response]
+<!-- Replace this note with METHOD /path, implementing file, concrete request/response shapes and owner role. -->
 
 ## Data model
 <!-- table/collection — columns with types — owner role -->
@@ -96,12 +113,13 @@ Every line must be concrete: `POST /api/rank` in `app/api/rank/route.ts`
 returning `{ trails: { id: string; shadeScore: number }[] }`, owner
 Backend. "An endpoint that returns items" must never appear. Omit the ⚠️
 sections when they are empty. Do not put an agreement in the contract that
-does not appear in a spec.
+does not appear in a spec or a recorded amendment. Reconcile current amendments
+with new specs explicitly; do not silently regenerate away agreed changes.
 
 ## Step 4 — emit grill/contract.ts on TypeScript stacks
 
 If `manifest.project.knownStack` names TypeScript (or the repo has a tsconfig), also
-write `grill/contract.ts`: the same agreements as importable types.
+stage `grill/contract.next.ts`: the same agreements as importable types.
 
 - One exported interface per request/response shape and per table row
 - A `Paths` constant mapping endpoint names to their literal paths
@@ -109,12 +127,69 @@ write `grill/contract.ts`: the same agreements as importable types.
 - No imports, no runtime code — types and constants only, so it compiles in
   any TS project
 
-Verify it compiles (`npx tsc --noEmit grill/contract.ts`). If the stack is
-not TypeScript, skip this step and note in CONTRACT.md that drift checking
-is prose-only.
+Bind actual implementing code and callers to these exported types at the
+producer/consumer boundaries. A standalone generated file or an unused import
+does not establish integration. Keep prose and staged types consistent; a
+finalizer hashes artifacts but cannot infer their semantic equivalence. For a
+non-TypeScript project select `types: "none"` and note prose-only checking.
+Existing types require explicit `preserve` or `replace`; never silently drop them.
 
-## Step 5 — hand off
+## Step 5 — finalize and verify the consuming project
 
-Tell the host: commit both files, tell the team to pull, and from now on
+Write `grill/CONTRACT-PROPOSAL.json` with schemaVersion 1, kind `merge` (or
+explicit legacy `adopt`), exact `parentRevision` (null for a first contract), a
+one-line summary, `changedAgreementIds`, `approval`, `agreedBy`, `pendingRoles`,
+`types` (`none`, `preserve`, or `replace`), `amendmentResolution`, and
+`resolvesPending` (usually []). Changed IDs must include every changed prose
+block and identify agreements affected by changed types. For a re-merge,
+`amendmentResolution` must name EVERY prior amendment revision, with decision
+`preserved` or `reconciled` and a concrete note. Preserved blocks and current
+types must remain unchanged; changed agreements require explicit reconciliation.
+There is no force bypass. If any role has not agreed, use approval `pending`
+and its role slug in `pendingRoles`; do not invent approval. Resolving prior
+pending entries requires agreed approval and their exact revision IDs.
+
+First-merge proposal example (replace names/IDs with this project's actual
+agreements; choose `replace` when staging types):
+
+```json
+{
+  "schemaVersion": 1,
+  "kind": "merge",
+  "parentRevision": null,
+  "summary": "Agree the rank response",
+  "changedAgreementIds": ["api.rank.response"],
+  "approval": "agreed",
+  "agreedBy": ["Backend", "Frontend"],
+  "pendingRoles": [],
+  "types": "none",
+  "amendmentResolution": [],
+  "resolvesPending": []
+}
+```
+
+Run `npx grill-with-me contract-finalize`, then `contract-status`. The command
+publishes current prose/types, appends both histories, and writes state last.
+On an interrupted write, status is unknown; retry the SAME proposal and staged
+outputs after fixing the filesystem error. Changed outputs or canonical edits
+stop for reconciliation. A killed process may leave a lock/temp file: inspect
+the journal and ensure its process stopped before removing only that leftover.
+Never mark an incomplete revision fresh or delete its journal to skip recovery.
+
+For TypeScript run `npx grill-with-me contract-typecheck <consuming-tsconfig>`.
+It runs installed project tools only: the declared `npm run typecheck`, or an
+installed compiler with `--noEmit -p` when no script exists. It also checks the
+selected project's diagnostics. Missing tools/configs and solution references
+are unknown; choose each consuming leaf config. Never use `npx tsc` to download
+tools or compile `contract.ts` alone. Unintegrated imports or failures block a
+claim that typed integration passed. Report baseline errors separately and
+repair newly introduced mismatches before claiming a passing handoff.
+
+See the repository's `doc/contract-revisions.md` and
+`examples/type-integration/` for executable proposal and producer/consumer examples.
+
+Tell the host: commit the current prose, optional types, both histories, and
+state together; tell the team to pull, and from now on
 anyone can run `check-contract` to find drift and `amend-contract` when the
-contract itself needs correcting.
+contract itself needs correcting. Name pending roles and unverified freshness
+explicitly. Hash preservation proves bookkeeping, not human agreement truth.

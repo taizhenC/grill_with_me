@@ -1,0 +1,6 @@
+{
+  "name": "grill-contract-consumer-example",
+  "private": true,
+  "scripts": { "typecheck": "node node_modules/typescript/bin/tsc --noEmit -p tsconfig.json" },
+  "devDependencies": { "typescript": "^5.6.0" }
+}

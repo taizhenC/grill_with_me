@@ -70,7 +70,7 @@ try {
   const command = ["exec", "--offline", "--no", "--", "grill-with-me"];
   assert.equal(runNpm([...command, "--version"], consumer), metadata.version);
   const help = runNpm([...command, "--help"], consumer);
-  for (const name of ["join", "host", "publish", "check-spec", "merge-preflight"]) {
+  for (const name of ["join", "host", "publish", "check-spec", "merge-preflight", "contract-status", "contract-finalize", "contract-typecheck"]) {
     assert.ok(help.includes(name), `Installed CLI help is missing ${name}`);
   }
 
@@ -91,9 +91,19 @@ try {
   const roleSpec = join(consumer, "grill/backend-spec.md");
   await writeFile(roleSpec, headings.map((heading) => `## ${heading}\n\nConcrete agreement for this section.\n`).join("\n"));
   assert.equal(JSON.parse(runNpm([...command, "merge-preflight"], consumer)).ok, true);
+  await writeFile(join(consumer, "grill/CONTRACT.next.md"), "# Contract\n\n## Endpoints\n\n### [agreement:api.rank.response]\nReturn { shadeScore: number }; Backend owns the API.\n");
+  await writeFile(join(consumer, "grill/CONTRACT-PROPOSAL.json"), JSON.stringify({
+    schemaVersion: 1, kind: "merge", parentRevision: null, summary: "Packaged response agreement",
+    changedAgreementIds: ["api.rank.response"], approval: "agreed", agreedBy: ["Backend"], pendingRoles: [],
+    types: "none", amendmentResolution: [], resolvesPending: [],
+  }));
+  assert.equal(JSON.parse(runNpm([...command, "contract-finalize"], consumer)).revision.number, 1);
+  assert.equal(JSON.parse(runNpm([...command, "contract-status"], consumer)).freshness, "fresh");
+  assert.equal(JSON.parse(runNpm([...command, "contract-typecheck"], consumer)).integration, "prose-only");
   await writeFile(roleSpec, "## Scope\n\nMissing sections.\n");
   assert.equal(JSON.parse(runNpm([...command, "merge-preflight"], consumer, 1)).ok, false);
-  console.log(`Installed CLI ${metadata.version}: archive, command, help, spec checks, and merge gate passed.`);
+  assert.equal(JSON.parse(runNpm([...command, "contract-status"], consumer)).freshness, "unknown");
+  console.log(`Installed CLI ${metadata.version}: archive, command, help, spec/merge checks, and contract revision gates passed.`);
 } finally {
   // Only remove the temporary directory created by this script, never a
   // checkout or an arbitrary path supplied in package metadata.
