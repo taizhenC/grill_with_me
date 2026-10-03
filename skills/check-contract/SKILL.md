@@ -34,6 +34,14 @@ by role, never presented as a bare file list.
 
 Do NOT read the whole repo. Derive the file set from the contract itself:
 
+Ground role attribution in the shared roster (`grill-room.json`, if present)
+and the contract's Roles section. A clause naming an owner does not create a
+teammate. If that owner is absent from the available shared roster, or from the
+contract role list when no roster exists, record **unverified ownership** with
+the clause and missing path/spec evidence. Ask the team to assign or reconcile
+that owner; do not direct a conversation to an invented teammate. Keep a
+missing implementation and an unconfirmed owner distinct.
+
 1. Every implementing file named in `## Endpoints`
 2. Files defining the tables/models named in `## Data model`
 3. Call sites of contract endpoints — grep for each endpoint path literal
@@ -65,6 +73,15 @@ For each contract line, check the implementation:
 Only report what you can evidence with a file and line. If you cannot read
 enough to be sure, say "unverified", never guess. A clean repo must produce
 an empty report — do not manufacture findings to seem useful.
+
+For every drift item, identify the current contract clause and the incompatible
+code behavior. An HTTP response shape constrains the endpoint producer; it
+does not require every caller to parse that body or return the parsed object.
+Returning a raw fetch Response is compatible unless the contract also agrees
+the caller's return/consumption behavior. Do not turn missing parsing or absent
+generated types into an extra agreement. Record missing type integration or
+untraced runtime behavior under "Unverified"; report a field mismatch when a
+caller actually reads a field incompatible with the agreed response.
 
 ## Step 3 — write grill/CHECK-REPORT.md
 
