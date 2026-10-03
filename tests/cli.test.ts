@@ -329,7 +329,7 @@ describe("pack filesystem safety", () => {
       const outside = await repo();
       const target = join(outside, "sentinel.md");
       await writeFile(target, "outside sentinel\n");
-      await mkdir(join(dir, "grill"), { recursive: true });
+      await mkdir(join(dir, ".grill-with-me"), { recursive: true });
       await mkdir(join(dir, ".claude/skills/amend-contract"), { recursive: true });
       await symlink(target, join(dir, path), "file");
 
