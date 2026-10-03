@@ -73,6 +73,7 @@ describe("agent evidence handling", () => {
     const redacted = redactForeignOutputs("codex", events);
     expect(redacted[0].item.aggregated_output).toBe("fixture");
     expect(redacted[1].item.originalOutputSha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(redactForeignOutputs("codex", redacted)).toEqual(redacted);
     expect(JSON.stringify(redacted)).not.toContain("private global text");
     const fixture = join(homedir(), "AppData/Local/Temp/grill-owned-fixture");
     const localRead = [{ type: "assistant", content: [{ type: "tool_use", id: "owned", name: "Read", input: { file_path: join(fixture, "README.md") } }] }];

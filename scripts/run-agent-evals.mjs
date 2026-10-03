@@ -150,7 +150,7 @@ export function homeReadFindings(agent, events, directory = null) {
 export function redactForeignOutputs(agent, events, directory = null) {
   const ids = new Set(homeReadFindings(agent, events, directory).map(finding => finding.itemId));
   return events.map(event => {
-    if (agent !== "codex" || !ids.has(event.item?.id) || !event.item.aggregated_output) return event;
+    if (agent !== "codex" || !ids.has(event.item?.id) || !event.item.aggregated_output || event.item.outsideFixtureOutputRedacted) return event;
     const output = event.item.aggregated_output;
     return { ...event, item: { ...event.item, aggregated_output: "[Outside-fixture content omitted from public evidence]",
       outsideFixtureOutputRedacted: true, originalOutputSha256: sha(output), originalOutputBytes: Buffer.byteLength(output) } };

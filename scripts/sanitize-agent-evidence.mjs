@@ -29,7 +29,7 @@ async function sanitize(directory, agent = null) {
       phaseReads.push(...findings);
       value.events = redactForeignOutputs(agent, value.events);
       value.scopeAudit = { knownHomeReads: findings, completeReadConfinement: "Not established by this detector; manual review required." };
-      value.sanitizedRetrospectively = { method: "JSON parse then recursive path redaction; outside-fixture output omitted with SHA256; semantic assistant outputs unchanged.",
+      value.sanitizedRetrospectively ??= { method: "JSON parse then recursive path redaction; outside-fixture output omitted with SHA256; semantic assistant outputs unchanged.",
         originalRecordSha256: createHash("sha256").update(raw).digest("hex") };
     }
     await writeFile(path, redactEvidence(value, null));
