@@ -6,7 +6,8 @@ Framework logging could therefore expose private database details and stall.
 
 All room reads/mutations now bound headers and body to five seconds, including
 recoverable creation and deletion. Known room-key collision retries share the
-creation deadline; unknown failures are never automatically retried. Requests
+creation deadline; unknown failed mutations are never automatically retried. The
+installed PostgREST client may retry idempotent reads within that same deadline. Requests
 are aborted on failure. A timeout can follow a committed mutation: the fixed
 503 response asks callers to check the previous outcome before retrying a write.
 Use publication recovery for a lost creation acknowledgement.

@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
+import { mintPublicationCapability } from "../cli/publication-capability.mjs";
 
 // Actual built Next bundles, including the separately compiled page proxy.
 // Controlled HTTP responses test the RPC transport; test:db proves SQL behavior.
@@ -39,10 +40,10 @@ async function withApp(overrides, check) {
   const exited = once(server, "exit");
   let stderr = "";
   server.stderr.on("data", (chunk) => { stderr = (stderr + chunk).slice(-8000); });
-  const call = (path, body, token, method) => fetch(`http://127.0.0.1:${port}${path}`, {
+  const call = (path, body, token, method, extraHeaders = {}) => fetch(`http://127.0.0.1:${port}${path}`, {
     ...(body ? { method: "POST", body: typeof body === "string" ? body : JSON.stringify(body) } : {}),
     ...(method ? { method } : {}),
-    headers: token ? { authorization: `Bearer ${token}` } : {},
+    headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), ...extraHeaders },
     signal: AbortSignal.timeout(5000),
   });
   try {
@@ -52,7 +53,7 @@ async function withApp(overrides, check) {
       try { await call("/"); ready = true; break; } catch { await delay(100); }
     }
     assert(ready, "compiled Next server did not start");
-    await check(call);
+    await check(call, () => stderr);
   } catch (error) {
     if (stderr) console.error(stderr);
     throw error;
@@ -63,12 +64,16 @@ async function withApp(overrides, check) {
 }
 
 let rpcStatus = 200;
+let allowQuotas = false;
+const privateDetail = "DO_NOT_LOG_HOST_TOKEN_OR_PRIVATE_BRIEF";
 const calls = [];
 const fake = createServer(async (req, res) => {
   let raw = ""; for await (const chunk of req) raw += chunk;
-  calls.push({ path: req.url, body: JSON.parse(raw) });
-  res.writeHead(rpcStatus, { "content-type": "application/json" });
-  res.end(JSON.stringify(rpcStatus === 200 ? { allowed: false, retryAfter: 37 } : { message: "private database details" }));
+  calls.push({ path: req.url, body: raw ? JSON.parse(raw) : null });
+  const quota = req.url === "/rest/v1/rpc/consume_request_quota";
+  res.writeHead(quota ? rpcStatus : 500, { "content-type": "application/json" });
+  res.end(JSON.stringify(quota ? rpcStatus === 200 ? { allowed: allowQuotas, retryAfter: allowQuotas ? 0 : 37 }
+    : { message: "private database details" } : { code: "XX000", message: privateDetail, details: privateDetail }));
 });
 await new Promise((resolve, reject) => { fake.once("error", reject); fake.listen(0, "127.0.0.1", resolve); });
 
@@ -90,6 +95,31 @@ try {
     }
   });
   console.log("PASS: compiled API/page quota429+Retry-After and cross-bundle backend503");
+
+  rpcStatus = 200;
+  allowQuotas = true;
+  await withApp({ NODE_ENV: "test", GRILL_STORE: "supabase", SUPABASE_URL: `http://127.0.0.1:${fake.address().port}`,
+    SUPABASE_SERVICE_KEY: "test-only-service-key" }, async (call, capturedErrors) => {
+    const brief = { ...fixtureRoom, project: { ...fixtureRoom.project, idea: privateDetail } };
+    for (const [path, method] of endpoints.slice(0, 5)) {
+      const body = method === "POST" ? path.endsWith("/claim") ? { role: "frontend", displayName: privateDetail } : brief : undefined;
+      const response = await call(path, body, privateDetail, method);
+      assert.equal(response.status, 503, path);
+      assert.equal(response.headers.get("retry-after"), "5", path);
+      assert(response.headers.get("cache-control").includes("no-store"), path);
+      assert(!(await response.text()).includes(privateDetail));
+    }
+    const capability = mintPublicationCapability();
+    const recoverable = await call("/api/rooms", brief, undefined, "POST", { "idempotency-key": capability });
+    assert.equal(recoverable.status, 503);
+    assert(!(await recoverable.text()).includes(capability));
+    await delay(50); // Drain child stderr before inspecting its operation-only events.
+    const diagnostic = capturedErrors();
+    assert(diagnostic.includes('"event":"room_storage_unavailable"'));
+    assert(!diagnostic.includes(privateDetail));
+    assert(!diagnostic.includes(capability));
+  });
+  console.log("PASS: compiled room storage503 responses and operation-only logs exclude private database input");
 
   const maintenanceSecret = "fixture-only-maintenance-secret-123456";
   await withApp({ NODE_ENV: "test", GRILL_STORE: "memory", CRON_SECRET: maintenanceSecret }, async (call) => {
