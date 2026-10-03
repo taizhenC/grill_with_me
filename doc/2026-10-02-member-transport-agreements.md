@@ -1,0 +1,9 @@
+# Member transport agreement correction — 2026-10-02
+
+A current bounded Claude Backend evaluation wrote GET HTTP 200 and a bodyless POST under “What I own” although the fixed respondent agreed only response shapes, missing-ticket 404 and repeated-close 200. It also described a no-pagination/all-rows policy without labelling the current stub observation. The structure and actual handoff gate passed, so these are content failures; the first artifact and contradictory final summary remain preserved in the current-matrix evidence.
+
+The canonical installed member instructions now require reviewing concrete claims in every section, including Scope and What I own. Endpoint ownership does not settle status codes, request bodies or pagination. Conventional defaults require explicit respondent or teammate agreement; a bodyless call or argument-free stub may be described only as observed behavior with its source path. Unagreed transport rules remain under Still unclear even where path/response shape is agreed.
+
+This changes `renderMyRoleMd` in `lib/pack.ts`, so every installed role uses the same correction. It does not add fixture-specific answers or force an output schema. Earlier/current evaluation populations are preserved; the in-progress matrix uses its original frozen source hashes. A separate fresh Backend run after integration will measure the corrected prompt and retain any failure.
+
+The existing deterministic pack/fixture tests verify generated artifacts and installation, but cannot prove factual faithfulness. Root runs those checks after this feature merge; the final integration report records the executed revision and the independently graded real-agent follow-up. No previous failing artifact is relabelled passing, and no full beta quality or human-pilot claim is made.
