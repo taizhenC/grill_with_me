@@ -1,0 +1,7 @@
+# Separately accepted member decision clauses — 2026-10-02
+
+The full corrected Codex evaluation produced five structurally valid handed-off specs, but its Frontend spec put inline ticket error placement under Decisions made. The synthetic respondent had approved exact message strings and keeping the ticket visible, without accepting inline placement from the preceding multi-part recommendation. The original artifact and failed grade are retained in the corrected run records; they are not repaired.
+
+The installed canonical member instructions now explicitly distinguish accepting error messages and item visibility from selecting inline/banner/toast placement or retry behavior. A recommendation with several clauses must be split into separately supported claims, with unanswered clauses left under Still unclear. This clarifies the existing requirement that recommendations need explicit acceptance and does not add a new artifact section or force an additional decision from the user.
+
+This source correction and its completion report use separate detailed owner-only commits and a feature PR. Combined generated-pack checks run after merging into main. A fresh bounded Codex Frontend handoff measures the corrected instruction separately; its result cannot replace the frozen full-population grade. Claude's full corrected matrix stopped on an actual account quota limit, so no additional Claude calls or completed-matrix claim is made. Human pilot, native editor discovery and production release gates remain independent.
