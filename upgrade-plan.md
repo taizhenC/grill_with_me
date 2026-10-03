@@ -1,12 +1,12 @@
 # grill-with-me: public-beta upgrade plan
 
-Prepared **2026-09-19**, against commit `1e7bbca`. Target confirmed by the project owner: **a reliable public beta**. This is a proposed implementation plan; the investigation changed documentation only.
+Originally prepared **2026-09-19**, against commit `1e7bbca`. Target confirmed by the project owner: **a reliable public beta**. The original investigation and baseline below are historical; implementation progress is recorded separately. The ranked backlog and acceptance criteria remain the release contract.
 
 The existing architecture fits the product: local agents conduct interviews, Git carries specs and contracts, and a small web service distributes packs. The next release should make that loop safe, dependable, and demonstrably useful. The most urgent work is dependency patching, local file protection, room access, database correctness, and making public onboarding available.
 
 ## Implementation progress — 2026-10-02
 
-The safety and deterministic-spec work is merged into `main` in separate PRs. September dependency targets below describe the research snapshot; the security implementation uses the newer October-verified patches. Completion reports for finished features are in `doc/`.
+The implementation below is merged into `main` through `19feaa414578d5cd968534633df7ddca7c83bd82`. September dependency targets and failure descriptions below describe the research snapshot; the security implementation uses the newer October-verified patches. Completion reports for finished features are in `doc/`. Merged code and test evidence do not complete the deployment, agent-quality, or pilot gates.
 
 | Plan item | Pull request | Implemented scope |
 |---|---|---|
@@ -23,20 +23,40 @@ The safety and deterministic-spec work is merged into `main` in separate PRs. Se
 | P0-02 refresh | [#16](https://github.com/taizhenC/grill_with_me/pull/16) | Installed hashes, local-edit preservation, atomic per-file replacement, and convergent retry |
 | P1-01 | [#17](https://github.com/taizhenC/grill_with_me/pull/17) | Shared exact spec parser, required role roster/context, and read-only merge preflight |
 | P0-03 shared quotas | [#18](https://github.com/taizhenC/grill_with_me/pull/18) | Shared database client/global budgets, trusted ingress, page protection, and compiled runtime regression checks |
+| P1-03 browser/ZIP; P1-04 browser CI | [#20](https://github.com/taizhenC/grill_with_me/pull/20) | Browser publish/republish setup, safe ZIP staging, bounded requests and replies, keyboard/copy/claim flows, and compiled Chromium checks |
+| P0-03 public origins | [#21](https://github.com/taizhenC/grill_with_me/pull/21) | Validated canonical or ingress origins before rendering links and CLI commands; forwarded headers require explicit proxy trust |
+| P1-03 member-local state | [#22](https://github.com/taizhenC/grill_with_me/pull/22) | Ignored member selectors and role instructions, safe legacy migration, two-checkout Git preservation, and custom CLI origin propagation |
+| P1-06 retention/privacy | [#23](https://github.com/taizhenC/grill_with_me/pull/23) | Host-authorized physical deletion, bounded purge RPC/maintenance route, retention disclosure, and operator runbook |
+| P1-04 Linux regression fixture | [#24](https://github.com/taizhenC/grill_with_me/pull/24) | Create the local selector parent before the Linux symlink fixture; retain rejection assertions |
+| P1-03 browser publication recovery | [#25](https://github.com/taizhenC/grill_with_me/pull/25) | Persist the original request/capability before POST, recover across lost replies/reloads, and require explicit abandonment before a new publication |
+| P0-04/P1-03 publication backend | [#26](https://github.com/taizhenC/grill_with_me/pull/26) | Atomic publication ledger, request/origin binding, identical replay credentials, bounded recovery expiry, and deletion/expiry tombstones |
+| P1-04 recovery browser fixtures | [#27](https://github.com/taizhenC/grill_with_me/pull/27) | Integrate browser fixtures with the saved-capability recovery protocol |
+| P1-02 contract revisions/types | [#28](https://github.com/taizhenC/grill_with_me/pull/28) | Source/artifact hashes, fresh/stale/unknown status, amendment preservation, recoverable finalization, and consuming-project TypeScript integration checks |
+| P0-04/P1-06 storage failures | [#29](https://github.com/taizhenC/grill_with_me/pull/29) | Five-second storage deadlines, safe cross-bundle 503 mapping, redacted operator events, and restoration drill |
+| P1-03 CLI publication recovery | [#30](https://github.com/taizhenC/grill_with_me/pull/30) | Protected recovery state before send, replay after process restart or credential-write failure, and validated acknowledgements |
+| P1-04 compiled failure verification | [#31](https://github.com/taizhenC/grill_with_me/pull/31) | Actual built Next route/page failures, private headers, redacted diagnostics, and preserved 403/404/410 domain outcomes |
 
-Pre-merge evidence: the [combined hosted CI run](https://github.com/taizhenC/grill_with_me/actions/runs/37076910493) passed all five jobs. Linux passed **151/151 tests**, typecheck, production build, and skill traces. CLI tests and installed-package checks passed with Node 22 and 24 on both Windows and Linux. Windows skips four Unix-specific file-symlink cases, all of which passed on Linux; its real junction/hardlink sentinel cases passed. A local real Next server smoke also passed host → publish → join → claim/status → republish → rejoin with pack v2. The final dependency branch's clean install and full audit passed, with zero reported vulnerabilities at verification time.
+Current combined evidence on exact main `19feaa414578d5cd968534633df7ddca7c83bd82`: **534 passed / 8 Windows skips** on Node 24; **289 passed / 8 Windows skips** for the Node 22 CLI checks; **12 compiled Chromium flows**; and **four real PostgreSQL 17.10 fixture suites**. Production build, typecheck, skill traces, compiled runtime checks, and installed-archive checks passed. The full npm audit reported **zero vulnerabilities** at verification time. [Hosted run 37083259153](https://github.com/taizhenC/grill_with_me/actions/runs/37083259153) passed all **seven jobs** on that same revision, including Node 22/24 CLI coverage on Windows/Linux, PostgreSQL, the app, and Chromium. Test totals support these executed checks; they do not establish agent behavior or production deployment.
 
-PRs #3–#6 were merged before the new main validation, as requested. Post-merge [CI run 37077465585](https://github.com/taizhenC/grill_with_me/actions/runs/37077465585) passed all five jobs on exact `main` revision `eb737f461a7c2e27b016c08abea2848d129a72c1`. Local Node 24 tests, typecheck, build, traces, installed-package smoke, full audit, and the real-server host-to-rejoin flow also passed. All implementation and local merge commits use `taizhenC <tzhcheung@gmail.com>` as author and committer, have detailed bodies, and contain no co-author trailer. Each code PR has two focused feature commits.
+Historical wave evidence: [pre-merge run 37076910493](https://github.com/taizhenC/grill_with_me/actions/runs/37076910493) passed five jobs with 151 Linux tests; [post-merge run 37077465585](https://github.com/taizhenC/grill_with_me/actions/runs/37077465585) passed five jobs on `eb737f461a7c2e27b016c08abea2848d129a72c1`. Later main `8419bcd17109c7ba1420a13b87612a35f261d2d1` passed 411 Node 24 tests with eight Windows skips and the checks documented in [the safety-wave completion record](doc/2026-10-02-safety-wave-completion.md). These records describe earlier checkpoints, not the current totals.
 
-The next safety wave was merged before combined testing, as requested. Exact main `8419bcd17109c7ba1420a13b87612a35f261d2d1` passed **411 tests** locally on Node 24, with eight Windows platform skips; typecheck, build, installed beta archive, skill traces, compiled API/page quota/error checks, and audit also passed. See [the safety-wave completion record](doc/2026-10-02-safety-wave-completion.md) for evidence and limitations.
+The ownership audit of the **113 upgrade-range commits in `9cc8cf5..19feaa4`** found exact author and committer `taizhenC <tzhcheung@gmail.com>` and no co-author trailers. This claim is scoped to the upgrade work, not older repository history.
 
-Still open: actual npm/service publication and Supabase deployment verification; contract revisions/type consumption; member-local role layout, browser/ZIP recovery and publication idempotency; browser CI/audit policy; retention/privacy operations; and live-agent/team gates. P2/P3 remain deferred as originally ranked. Passing local or hosted checks does not establish the unexecuted deployment or pilot gates.
+Release gates still open:
 
-## Baseline and evidence
+- **P0-05:** verify npm ownership/publishing access and the actual Vercel service, publish the tested beta archive, then execute the registry-installed host → publish → join → status → republish → rejoin flow against that deployment.
+- **P0-04/P1-06 deployment verification:** apply all migrations to the intended Supabase project; verify actual RLS/RPC grants, restart persistence, publication recovery, deletion and scheduled purge execution; record redacted monitoring, provider/backup policy, and recovery evidence. Disposable PostgreSQL tests and a local restoration drill do not verify the hosted account.
+- **P1-05 and P1-03 agent portability:** finish and review the real-agent evaluation/version/invocation matrix, triage and rerun invented or missed agreements, prove the clean/seeded drift gates, and complete the 3–5-person pilot. The evaluation PR is in progress; no passing agent matrix or completed team pilot is claimed. Three teams remain the promotion target.
+
+P2/P3 remain deferred as originally ranked. P1-02's stable agreement blocks support amendment preservation; the P2 findings/accepted-drift triage feature remains deferred. Passing local or hosted checks does not establish these unexecuted release gates.
+
+## Historical baseline and evidence — 2026-09-19
+
+These observations describe commit `1e7bbca` at the original investigation, before the merged fixes and expanded checks above. They are not current test totals or a current defect list.
 
 - `npm test`: **108 tests passed**, seven files.
 - `npm run typecheck`: passed.
-- `npm run build`: passed on the current Windows machine, Node 22.15.0.
+- `npm run build`: passed on the then-tested Windows machine, Node 22.15.0.
 - Additional local probes reproduced writes through a junction outside the CLI's working directory, acceptance of unexpected pack destinations, unignored saved credentials in fresh folders, cross-origin saved-token reuse, and invalid specs reported as valid.
 - Actual `SupabaseStore` code exercised with a query double reproduced lost different-role claims and false republish acknowledgements. Real Postgres integration remains to be tested.
 - Read-only public checks found the advertised npm package unavailable (404) and the default site returning `DEPLOYMENT_NOT_FOUND`. Other deployments or private release arrangements were not established.
@@ -179,6 +199,6 @@ Correct deletion/privacy claims immediately. Implement monitored scheduled delet
 | 3: prove and release | P1-05; finish P0-05 using the tested artifact | Behavioral gates and pilot pass; clean-machine `npx` works against production |
 | 4: learn from usage | P2 items chosen from pilot results | Measurable reduction in repeat failures or integration friction |
 
-For one developer, allow roughly **3–6 working weeks** including validation and pilot coordination; revise after the first safety/database changes. This estimate excludes delays obtaining npm/hosting access and assumes a deliberately small beta. The first implementation slice should be **the Next/sharp security patch plus a minimal CI baseline**, followed by **CLI safety regression cases** and **atomic storage**.
+Original delivery estimate (2026-09-19): roughly **3–6 working weeks** for one developer, including validation and pilot coordination. This historical estimate excluded delays obtaining npm/hosting access and assumed a deliberately small beta. The proposed first slices were **the Next/sharp security patch plus a minimal CI baseline**, **CLI safety regression cases**, and **atomic storage**; their merged implementations are recorded above.
 
-Release only when all P0/P1 criteria above are evidenced. A green unit-test run alone is insufficient. At present, production credentials/configuration, actual Supabase permissions, published npm ownership, live agent behavior, and real-team results remain unverified. The earlier `plan.md` remains useful design history; use this document for the next release's upgrade ordering.
+Release only when all P0/P1 criteria above are evidenced. A green unit-test run alone is insufficient. Actual npm/Vercel/Supabase release verification, passing agent-quality gates, and real-team results remain open as recorded above. The earlier `plan.md` remains useful design history; use this document for the next release's upgrade ordering.
