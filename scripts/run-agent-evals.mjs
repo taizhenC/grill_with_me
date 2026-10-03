@@ -160,8 +160,9 @@ async function run(config) {
     node: process.version, sourceFiles: {}, limits: { callMs: MAX_CALL_MS, runMs: MAX_RUN_MS, calls: MAX_CALLS, outputBytes: MAX_BYTES, claudePerCallBudgetUsd: 1 },
     isolation: "Synthetic temp fixture only; no CLI model override; fresh CLI per phase with verbatim interview transcript replay; no response schema or structure repair prompts.",
     cases: [], stopped: null };
+  const cliSources = (await readdir(join(repository, "cli"))).filter(path => path.endsWith(".mjs") || path === "package.json").map(path => `cli/${path}`);
   for (const path of ["lib/pack.ts", "lib/schema.ts", "skills/check-contract/SKILL.md", "skills/amend-contract/SKILL.md",
-    "cli/spec-format.mjs", "cli/room-key.mjs", "cli/pack-install.mjs", "cli/member-storage.mjs", "evals/fixtures.mjs", "scripts/run-agent-evals.mjs"])
+    "skills/merge-contract/SKILL.md", ...cliSources, "evals/fixtures.mjs", "scripts/run-agent-evals.mjs"])
     manifest.sourceFiles[path] = sha(await readFile(join(repository, path), "utf8"));
   const began = Date.now();
   let calls = 0;
@@ -170,16 +171,16 @@ async function run(config) {
     const directory = join(working, fixtureCase.id);
     const recordDirectory = join(out, fixtureCase.id);
     await mkdir(recordDirectory);
-    const { entry: fixture, files: input } = await createFixture(fixtureCase.id, directory);
-    await writeFile(join(recordDirectory, "fixture.json"), JSON.stringify({ files: input, expected: fixture.expected }, null, 2) + "\n");
-    const environment = "This is a synthetic offline fixture. Work only inside this directory. Do not access parent/user directories, credentials, network, git, or install packages. The local equivalent of npx grill-with-me check-spec is node check-spec.mjs PATH; use that instead. Do not modify source, inputs, role instructions, contract, or the local gate. Report permission failures without trying alternate paths or commands.";
+    const { entry: fixture, files: input, revision } = await createFixture(fixtureCase.id, directory);
+    await writeFile(join(recordDirectory, "fixture.json"), JSON.stringify({ files: input, expected: fixture.expected, revision }, null, 2) + "\n");
+    const environment = "This is a synthetic offline fixture. Work only inside this directory. Do not access parent/user directories, credentials, network, git, or install packages. The local equivalent of npx grill-with-me check-spec is node check-spec.mjs PATH; use that instead. The local equivalent of npx grill-with-me contract-status is node .eval-cli/grill.mjs contract-status. This is the actual copied CLI, not a mocked status. Do not modify source, inputs, role instructions, contract, or the local gate. Report permission failures without trying alternate paths or commands.";
     let prompt = `${environment}\n\n` + (fixture.kind === "member"
       ? "Read AGENTS.md and the installed .claude/commands/grill-my-role.md instruction, follow its references, and start the interview."
       : "Read check-contract.md and follow it. Write grill/CHECK-REPORT.md, then summarize the result. The fixture has no package manager/compiler; if a compiler is needed report that as unverified instead of installing one.");
     const results = [];
     for (const phase of fixture.kind === "member" ? ["interview", "write"] : ["check"]) {
       const args = config.agent === "claude" ? ["--restricted", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
-        "--tools", "Read,Glob,Grep,Write,Edit,Bash", "--allowedTools", "Read,Glob,Grep,Write,Edit", "Bash(node check-spec.mjs *)",
+        "--tools", "Read,Glob,Grep,Write,Edit,Bash", "--allowedTools", "Read,Glob,Grep,Write,Edit", "Bash(node check-spec.mjs *)", "Bash(node .eval-cli/grill.mjs contract-status)",
         "--permission-mode", "dontAsk", "--no-session-persistence", "--disable-slash-commands", "--max-budget-usd", "1",
         "--output-format", "stream-json", "--verbose", "-p"]
         : [entry, "exec", "--sandbox", "workspace-write", "--ignore-user-config", "--ignore-rules", "--ephemeral",

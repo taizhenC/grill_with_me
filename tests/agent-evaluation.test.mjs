@@ -38,7 +38,9 @@ describe("reproducible live-agent evaluation inputs", () => {
 
   it("pairs the amendment clean case with matching code and preserves a deliberately obsolete shared selector", async () => {
     const { files } = await createFixture("clean-no-local-role", await temporary());
-    expect(files["grill/CONTRACT-CHANGES.md"]).toContain("items");
+    expect(files["grill/CONTRACT.md"]).toContain("returns { items:");
+    expect(files["grill/CONTRACT-CHANGES.md"]).toContain("items wrapper replaces tickets");
+    expect(JSON.parse(files["grill/CONTRACT-STATE.json"])).toBeTruthy();
     expect(files["src/api.ts"]).toContain("return { items:");
     expect(files["src/TicketList.ts"]).toContain("body.items");
     expect(files[".grill-with-me/member.json"]).toBeUndefined();
@@ -51,8 +53,8 @@ describe("reproducible live-agent evaluation inputs", () => {
     expect(files["src/api.ts"]).toContain("return { items:");
     expect(files["src/TicketList.ts"]).toContain("database.query");
     expect(files["src/archive.ts"]).toBeUndefined();
-    expect(files["grill/CONTRACT.md"].split("\n")[8]).toContain("src/archive.ts");
-    expect(files["grill/CONTRACT.md"].split("\n")[9]).toContain("Payments");
+    expect(files["grill/CONTRACT.md"].split("\n")[13]).toContain("src/archive.ts");
+    expect(files["grill/CONTRACT.md"].split("\n")[15]).toContain("Payments");
     expect(entry.expected.findings).toHaveLength(5);
     expect(cases.filter(c => c.kind === "member")).toHaveLength(5);
     expect(cases.filter(c => c.id.startsWith("clean-"))).toHaveLength(3);
