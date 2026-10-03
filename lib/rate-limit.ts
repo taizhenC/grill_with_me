@@ -48,6 +48,17 @@ export class MemoryRequestLimiter implements RequestLimiter {
   private counters = new Map<string, Counter>();
   constructor(private policies: Policies = REQUEST_LIMITS, private now = Date.now) {}
 
+  purgeExpired(limit: number): number {
+    let deleted = 0;
+    for (const [key, counter] of this.counters) {
+      if (deleted >= limit) break;
+      if (!key.endsWith(":global") && counter.expiresAt <= this.now() - 3600000) {
+        this.counters.delete(key); deleted++;
+      }
+    }
+    return deleted;
+  }
+
   async consume(action: RequestAction, bucket: string): Promise<QuotaDecision> {
     const now = this.now();
     const policy = this.policies[action];
@@ -140,3 +151,12 @@ export function setRequestLimiter(limiter: RequestLimiter | null): void {
   else global[GLOBAL_KEY] = { limiter, secret: "test-only-request-identity" };
 }
 export function resetRateLimit(): void { setRequestLimiter(new MemoryRequestLimiter()); }
+
+/** Maintenance hook for the explicitly selected volatile development backend. */
+export function purgeMemoryRequestQuotas(limit: number): number {
+  const limiter = backend().limiter;
+  if (!("purgeExpired" in limiter) || typeof limiter.purgeExpired !== "function") {
+    throw new Error("memory quota maintenance unavailable");
+  }
+  return limiter.purgeExpired(limit);
+}
