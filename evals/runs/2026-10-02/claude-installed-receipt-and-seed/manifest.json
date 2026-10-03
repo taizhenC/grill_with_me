@@ -1,0 +1,67 @@
+{
+  "startedAt": "2026-10-03T00:55:26.477Z",
+  "agent": "claude",
+  "version": "2.1.274 (Claude Code)",
+  "node": "v24.21.0",
+  "sourceFiles": {
+    "lib/pack.ts": "4c2e7176376bc4b226fe95a5691cbddab7b034e73440175ab945c96599688375",
+    "lib/schema.ts": "03e8602cb39c959f371ea36c94d8b16de5ee0bcb3a14ce59c3db711bcbe1ac9e",
+    "skills/check-contract/SKILL.md": "ac9adfb10dfbe22f681673269e562681f1667cd77996d6939262d4b2643bc1f1",
+    "skills/amend-contract/SKILL.md": "25c867ab66163e17c9b7a5cde7121725abbd29c66ae7c0e4f15fb735d3d8c34c",
+    "skills/merge-contract/SKILL.md": "d6ed768b4e9a6635bce0194cf59b5e84c0f308934a2f0b857a52070530efa493",
+    "cli/contract-files.mjs": "1383d48cd75c9be41be562b8194e92d6be07cb787fc1e8bdaf6a63f6ae6d9017",
+    "cli/contract-record.mjs": "ab40f655937c5dbf36686d95aec7e695bb16b731f49c482968db472cb04ede22",
+    "cli/contract-types.mjs": "2549d4b58c1d04cf272b16a90b448a0ca13c18170b666fe754b6a4f72a1523b7",
+    "cli/contract-workflow.mjs": "ec42f6cadcb0d265b3fdd70ec3bd9f615c9a31be219869f87f153197dc8a59ae",
+    "cli/grill.mjs": "1f278b83d8a84d4d9159a92172d7b021c170aa705143bdd995d9ea3b82d9530a",
+    "cli/host-credentials.mjs": "d049fe8601adc564f549793c40f0a6fd9b8295feff2fe581367ef797b58e1849",
+    "cli/http.mjs": "3548ae7bccf763b42ff1a85ac9dfa860cb77a665625e050abdf428ba29a4ed96",
+    "cli/member-storage.mjs": "d840ffa965d93936aae26ffe18b54eab90b0f5ff7de840153af1f25d8ce480d5",
+    "cli/merge-input.mjs": "593d4cae2aa6928b0c1e5f4f1d6847458a05b85f2e18e02be9579e0cb0398b56",
+    "cli/merge-preflight.mjs": "3a3e78aa43d8ba280072d836da4b8077e2f452a76c231e6abb9ad0c4d9941fed",
+    "cli/pack-files.mjs": "9e7c93eea93bcc4d026813164ecf0338e2f6ed0bff5dd56edd9dd94b2927ca2f",
+    "cli/pack-install.mjs": "3a063dc51eb5ccfa48a56388650db5134f65869ec696c16d598d59767982dc90",
+    "cli/package.json": "0831156f2cf0304618af00a19ec3d7152c64dfdb27638b65c0b98886422889ca",
+    "cli/publication-capability.mjs": "f612763650871c8dcecbd652b4204da1f5c1e445112b9e7aaa0b01f57b36dcd5",
+    "cli/room-key.mjs": "27b14d7ec172b94deef66ffda88af3407146073d6b16c150c8cb37c902fb2415",
+    "cli/spec-format.mjs": "d333f8f696d9a06432ecf14acfb1b7ecaa4b826a67644ce25c4ba516bd5bbc75",
+    "evals/fixtures.mjs": "e353375de653f247a088da9834bf49f686314f8fe3aae6837594266f69e5ed58",
+    "scripts/run-agent-evals.mjs": "a2c08fa1acbf018822d282a34c1a07397415ac5c9ee907ddc31e9f09880aafab"
+  },
+  "limits": {
+    "callMs": 120000,
+    "runMs": 1800000,
+    "calls": 14,
+    "outputBytes": 2097152,
+    "claudePerCallBudgetUsd": 1
+  },
+  "isolation": "Synthetic temp fixture only; no CLI model override; fresh CLI per phase with verbatim interview transcript replay; no response schema or structure repair prompts.",
+  "cases": [
+    {
+      "id": "clean-baseline",
+      "artifactExists": true,
+      "structureOk": null,
+      "results": [
+        {
+          "phase": "check",
+          "exitCode": 0,
+          "stopped": null
+        }
+      ]
+    },
+    {
+      "id": "seeded-drift",
+      "artifactExists": true,
+      "structureOk": null,
+      "results": [
+        {
+          "phase": "check",
+          "exitCode": 1,
+          "stopped": "timeout"
+        }
+      ]
+    }
+  ],
+  "stopped": "agent-failure",
+  "finishedAt": "2026-10-03T00:59:00.227Z"
+}
