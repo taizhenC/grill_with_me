@@ -6,8 +6,10 @@ import { preflightTargets, readPackFile } from "./pack-files.mjs";
 
 const exec = promisify(execFile);
 export const CONFIG_FILE = ".grill-with-me.json";
+export const PUBLICATION_FILE = ".grill-with-me-publish.json";
 const TEMP_FILE = `${CONFIG_FILE}.tmp`;
-const IGNORE_BLOCK = `# grill-with-me host credentials — do not commit\n/${CONFIG_FILE}\n/${TEMP_FILE}\n`;
+const SECRET_FILES = [CONFIG_FILE, TEMP_FILE, PUBLICATION_FILE, `${PUBLICATION_FILE}.tmp`];
+const IGNORE_BLOCK = `# grill-with-me host credentials — do not commit\n${SECRET_FILES.map((file) => `/${file}\n`).join("")}`;
 
 /** Credential-bearing operations support origin URLs, not arbitrary API paths. */
 export function normalizeHostOrigin(value) {
@@ -62,9 +64,9 @@ export function selectHostToken(config, base, roomKey, explicitToken) {
 async function git(root, args) {
   const env = { ...process.env, LC_ALL: "C" };
   // Inspect this checkout's real index, not an unrelated GIT_DIR/index override.
-  for (const key of Object.keys(env)) if (key.startsWith("GIT_")) delete env[key];
+  for (const key of Object.keys(env)) if (/^GIT_/i.test(key)) delete env[key];
   try {
-    const { stdout, stderr } = await exec("git", args, { cwd: root, env });
+    const { stdout, stderr } = await exec("git", args, { cwd: root, env, timeout: 10_000 });
     return { code: 0, stdout, stderr };
   } catch (err) {
     if (err.code === "ENOENT") throw new Error("Git is required to verify host credential storage");
@@ -81,7 +83,7 @@ async function assertUntracked(root) {
   }
   const tracked = await git(root, [
     "ls-files", "--cached", "--stage", "--",
-    `:(icase,literal)${CONFIG_FILE}`, `:(icase,literal)${TEMP_FILE}`,
+    ...SECRET_FILES.map((file) => `:(icase,literal)${file}`),
   ]);
   if (tracked.code !== 0) throw new Error("could not verify whether host credential files are tracked");
   if (tracked.stdout) {
@@ -108,15 +110,23 @@ export async function readHostConfig(root) {
   return config;
 }
 
+export async function readPublicationFile(root) {
+  await preflightTargets(root, SECRET_FILES);
+  await assertUntracked(root);
+  return readPackFile(join(root, PUBLICATION_FILE));
+}
+
 /** Establish ignore protection before asking a server to create a credential. */
 export async function prepareHostStorage(root) {
-  await preflightTargets(root, [CONFIG_FILE, TEMP_FILE, ".gitignore"]);
+  await preflightTargets(root, [...SECRET_FILES, ".gitignore"]);
   const inGit = await assertUntracked(root);
-  try {
-    await lstat(join(root, TEMP_FILE));
-    throw new Error(`temporary credential file ${TEMP_FILE} already exists; inspect it before retrying`);
-  } catch (err) {
-    if (err.code !== "ENOENT") throw err;
+  for (const file of [TEMP_FILE, `${PUBLICATION_FILE}.tmp`]) {
+    try {
+      await lstat(join(root, file));
+      throw new Error(`temporary credential file ${file} already exists; inspect it before retrying`);
+    } catch (err) {
+      if (err.code !== "ENOENT") throw err;
+    }
   }
   const ignorePath = join(root, ".gitignore");
   const current = (await readPackFile(ignorePath)) ?? "";
@@ -124,10 +134,30 @@ export async function prepareHostStorage(root) {
     await writeFile(ignorePath, `${current}${current && !current.endsWith("\n") ? "\n" : ""}${IGNORE_BLOCK}`, "utf8");
   }
   if (inGit) {
-    for (const path of [CONFIG_FILE, TEMP_FILE]) {
+    for (const path of SECRET_FILES) {
       const ignored = await git(root, ["check-ignore", "--quiet", "--", path]);
       if (ignored.code !== 0) throw new Error(`Git does not ignore ${path}; host credentials were not saved`);
     }
+  }
+}
+
+/** Exclusive temporary file plus compare-before-rename prevents two first
+ * publishers that read an absent/old record from silently replacing each other. */
+export async function savePublicationFile(root, contents, expectedContents) {
+  await prepareHostStorage(root);
+  const temporary = join(root, `${PUBLICATION_FILE}.tmp`);
+  let created = false;
+  try {
+    await writeFile(temporary, contents, { flag: "wx", mode: 0o600 });
+    created = true;
+    await preflightTargets(root, SECRET_FILES);
+    if (await readPackFile(join(root, PUBLICATION_FILE)) !== expectedContents) {
+      throw new Error("publication state changed");
+    }
+    await rename(temporary, join(root, PUBLICATION_FILE));
+  } catch (err) {
+    if (created) await unlink(temporary).catch(() => {});
+    throw new Error(`could not save publication recovery safely (${err.code ?? "state changed"}); no new publication was sent`);
   }
 }
 

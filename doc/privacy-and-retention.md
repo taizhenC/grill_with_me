@@ -21,6 +21,12 @@ by configured maintenance after that window; removal can be delayed by failures
 or busy rows. A retry with the expired capability cannot create another room.
 See [the recovery protocol](publication-recovery-protocol.md).
 
+The CLI stores the original publication body, origin and raw recovery capability
+in the local ignored `.grill-with-me-publish.json` before sending. It retains the
+attempt after success, expiry or a rejected retry until the user explicitly
+replaces or removes it. It is private host state, not a shared project artifact.
+Git protection cannot erase a previously force-added or externally copied file.
+
 The application has no upload endpoint for role specs, contracts, source code or
 AI conversations; those remain in the team's checkout/editor workflow. Text put
 into a room brief or display name is uploaded. Do not put secrets there.

@@ -10,17 +10,45 @@ Use Node 24 for the application. From the repository:
 
 ```sh
 npm ci
+npx --no-install playwright install --only-shell chromium
 npm test
 npm run typecheck
 npm run build
+npm run test:runtime
+npm run test:browser
 node scripts/verify-skill-traces.mjs
 node scripts/verify-cli-package.mjs
 npm audit --audit-level=low
 ```
 
-Run `npm run test:db` only against an empty disposable database named `grill_test`
-with `GRILL_TEST_DATABASE_URL` configured. The test creates and removes its
-fixture table/functions. Hosted CI supplies a fresh PostgreSQL service.
+Install the Chromium build matching the repository's locally installed,
+lockfile-pinned `@playwright/test` (currently `1.63.0`). On Linux, add
+`--with-deps` to the install command to include the required system libraries,
+as hosted CI does.
+The runtime and browser commands require the preceding production build. Runtime
+checks launch actual compiled Next bundles with controlled database HTTP fixtures;
+browser checks launch a separate compiled app in explicit memory mode on
+`127.0.0.1:3108`, without reusing an existing server. Neither verifies hosted SQL.
+
+Set `GRILL_TEST_DATABASE_URL` to an **empty disposable** PostgreSQL database, then
+run `npm run test:db`. All four scripts check the actual connected database name
+against `^grill_test(?:[_-].+)?$`: `grill_test`, `grill_test_release`, and
+`grill_test-release` are accepted. Each suite rejects its known existing application
+tables, creates its fixtures/migrations, and removes owned tables/functions in
+cleanup. The name and table checks do not establish that other data is safe to
+modify. Use a disposable cluster and a privileged fixture connection: setup may
+create the cluster-wide `anon`, `authenticated`, and `service_role` roles, requires
+`service_role` to have `BYPASSRLS`, and leaves those roles in place. Do not use a
+production or populated database. Hosted CI supplies a fresh PostgreSQL service.
+
+The command runs these scripts in order:
+
+| Script | Real database checks |
+|---|---|
+| `scripts/verify-store-database.mjs` | Concurrent claims/republishes, committed versions, authorization/expiry, and RLS/function privileges |
+| `scripts/verify-request-quotas.mjs` | Shared atomic client/global budgets, fresh-process persistence, bounded cleanup, and restricted-role denial |
+| `scripts/verify-retention-database.mjs` | Host deletion, queued writers, bounded concurrent purge, rollback, and deletion/purge privileges |
+| `scripts/verify-publication-database.mjs` | Identical concurrent replay, binding conflicts, collision rollback, deletion/expiry tombstones, and ledger privileges |
 
 Pack from `cli/`, whose package is public; the application package is private:
 
@@ -44,6 +72,14 @@ Set server-only `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` through hosting settin
 do not commit or paste secrets into reports. Keep `GRILL_STORE=supabase` in
 production. Memory mode is restricted to explicit development/test use. A
 secret-free build succeeds, but unconfigured production room APIs return 503.
+
+Set `GRILL_PUBLIC_ORIGIN` to the deployment's validated HTTPS origin when using
+a canonical public address. Keep `GRILL_TRUST_PROXY` unset unless the ingress
+is verified to replace forwarded headers; only `GRILL_TRUST_PROXY=1` opts into
+them. Check printed links/commands and publication recovery against the intended
+origin, including a lost reply, same-request replay, and denial after room deletion.
+Keep service/database clocks synchronized for the 24-hour recovery window; see
+[the publication recovery protocol](publication-recovery-protocol.md).
 
 Configure `CRON_SECRET`, verify the actual daily cron and function limit, and set
 up operator monitoring/recovery using [the retention runbook](operations-retention-runbook.md).
