@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { tmpdir, homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { cases, createFixture } from "../evals/fixtures.mjs";
-import { selectedEvents, assistantText, invoke } from "../scripts/run-agent-evals.mjs";
+import { selectedEvents, assistantText, invoke, redactEvidence } from "../scripts/run-agent-evals.mjs";
 
 const directories = [];
 async function temporary() {
@@ -61,6 +61,13 @@ describe("reproducible live-agent evaluation inputs", () => {
 });
 
 describe("agent evidence handling", () => {
+  it("redacts nested shell-escaped account and fixture paths", () => {
+    const directory = join(tmpdir(), "grill-eval-test-owned");
+    const result = redactEvidence({ command: homedir().replaceAll("\\", "\\\\"), nested: [{ path: directory }] }, directory);
+    expect(result).toContain("${HOME}");
+    expect(result).toContain("${FIXTURE}");
+    expect(result).not.toContain(homedir().replaceAll("\\", "\\\\"));
+  });
   it("retains tool and answer evidence while excluding reasoning and account metadata", () => {
     const stream = [
       { type: "system", subtype: "init", model: "actual-model", claude_code_version: "local-version", apiKeySource: "private", session_id: "private" },

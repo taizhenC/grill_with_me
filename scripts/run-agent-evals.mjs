@@ -1,7 +1,7 @@
 import { spawn, execFile } from "node:child_process";
 import { readFile, writeFile, mkdir, mkdtemp, readdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { join, resolve, relative, dirname } from "node:path";
+import { join, resolve, relative, dirname, basename } from "node:path";
 import { tmpdir, homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { cases, createFixture, repository } from "../evals/fixtures.mjs";
@@ -109,14 +109,23 @@ export function assistantText(agent, events) {
     : events.filter(e => e.type === "item.completed" && e.item?.type === "agent_message").map(e => e.item.text).join("\n\n");
 }
 
-function scrub(value, directory) {
-  let text = JSON.stringify(value, null, 2);
-  for (const [path, label] of [[directory, "${FIXTURE}"], [repository, "${REPOSITORY}"], [homedir(), "${HOME}"], [tmpdir(), "${TEMP}"]]) {
-    // JSON paths can contain escaped backslashes; normalize both spelling forms.
-    text = text.split(JSON.stringify(path).slice(1, -1)).join(label);
-    text = text.split(path.replaceAll("\\", "/")).join(label);
+export function redactEvidence(value, directory) {
+  function sanitize(input) {
+    if (typeof input === "string") {
+      for (const [path, label] of [[directory, "${FIXTURE}"], [repository, "${REPOSITORY}"], [homedir(), "${HOME}"], [tmpdir(), "${TEMP}"]]) {
+        if (!path) continue;
+        for (const spelling of [path, path.replaceAll("\\", "\\\\"), path.replaceAll("\\", "/")])
+          input = input.split(spelling).join(label);
+      }
+      // Directory-local shell listings can expose the OS account owner.
+      const username = basename(homedir()).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return input.replace(new RegExp(`\\b${username}\\b`, "g"), "${USER}");
+    }
+    if (Array.isArray(input)) return input.map(sanitize);
+    if (input && typeof input === "object") return Object.fromEntries(Object.entries(input).map(([key, entry]) => [key, sanitize(entry)]));
+    return input;
   }
-  return `${text}\n`;
+  return `${JSON.stringify(sanitize(value), null, 2)}\n`;
 }
 
 async function outputFiles(directory) {
@@ -195,7 +204,7 @@ async function run(config) {
       const result = { phase, startedAt: raw.startedAt, durationMs: raw.durationMs, exitCode: raw.exitCode,
         stopped: raw.stopped, invocation: { executable: config.agent === "claude" ? "claude" : "node ${CODEX_ENTRY}", args: args.map(a => a === entry ? "${CODEX_ENTRY}" : a), prompt },
         events, assistantText: text, stderr: raw.stderr };
-      await writeFile(join(recordDirectory, `${phase}.json`), scrub(result, directory));
+      await writeFile(join(recordDirectory, `${phase}.json`), redactEvidence(result, directory));
       results.push({ phase, exitCode: raw.exitCode, stopped: raw.stopped });
       if (raw.exitCode !== 0 || raw.stopped || events.some(e => e.isError || e.type === "turn.failed" || e.type === "error")) {
         manifest.stopped = "agent-failure";
