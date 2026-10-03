@@ -28,7 +28,7 @@ Production requires `GRILL_STORE=supabase`, the identified project's
 Keep `GRILL_TRUST_PROXY` unset on Vercel: the service already recognizes its
 sanitized ingress headers. Never commit, publish, or print secret values.
 
-Apply migrations `0001` through `0005` in order after checking hosted schema
+Apply migrations `0001` through `0006` in order after checking hosted schema
 and migration history. Do not use the disposable-database verification scripts
 against the hosted project. Verify service-role table privileges, RLS without
 browser policies, restricted RPC execution, and actual PostgREST access.

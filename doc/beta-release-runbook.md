@@ -65,7 +65,11 @@ exclude credentials and local receipts.
 
 Identify the owner's Supabase and Vercel projects before provisioning anything.
 Apply every `supabase/migrations/*.sql` file in filename order to the intended
-database. Verify RLS, function grants, concurrent mutations, retention, and
+database, including `0006_explicit_room_privileges.sql`. It explicitly grants
+room-table CRUD to `service_role`; new Supabase projects no longer grant it
+automatically. Keep direct browser-role table access revoked and verify all
+four server privileges separately. Verify RLS, function grants, concurrent
+mutations, retention, and
 restart persistence on that actual deployment.
 
 Set server-only `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` through hosting settings;
