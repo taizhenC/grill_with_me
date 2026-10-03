@@ -21,5 +21,8 @@ Thumbs.db
 *.tsbuildinfo
 next-env.d.ts
 
-# host token, written by `npx grill-with-me publish`
+# Private host credentials and publication recovery, never commit.
 .grill-with-me.json
+.grill-with-me.json.tmp
+.grill-with-me-publish.json
+.grill-with-me-publish.json.tmp

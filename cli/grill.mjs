@@ -35,6 +35,7 @@ import { contractStatus, finalizeContract, planContract } from "./contract-workf
 import { contractTypecheck } from "./contract-types.mjs";
 import { validatePack } from "./pack-files.mjs";
 import { fetchJson } from "./http.mjs";
+import { preparePublication, validatePublicationAcknowledgement } from "./publication-recovery.mjs";
 import {
   normalizePackOrigin, readInstallReceipt, receiptMatches,
   validateMemberIdentity, planInstall, executeInstall,
@@ -103,6 +104,8 @@ ${bold("If a teammate sent you a link or a room key:")}
 ${bold("If you are the host:")}
   npx grill-with-me host                    install grill-host + merge-contract here
   npx grill-with-me publish <file>          publish grill-room.json, get the link
+    --recover          recover the saved original request after a lost response
+    --new-publication  explicitly replace a previous publication attempt
   npx grill-with-me republish [file]        replace the room content, bump version
   npx grill-with-me delete <room-key|url>   remove the shared room with its host token
   npx grill-with-me status [room-key|url]   who has claimed what
@@ -117,7 +120,7 @@ Options everywhere: --base <url> (default ${DEFAULT_BASE}), --help, --version`)}
 /* args                                                                */
 
 const VALUE_FLAGS = ["--role", "--base", "--name", "--token", "--key"];
-const BOOL_FLAGS = ["--force", "--dry-run", "--no-claim", "--help", "--version"];
+const BOOL_FLAGS = ["--force", "--dry-run", "--no-claim", "--help", "--version", "--recover", "--new-publication"];
 
 function parseArgs(argv) {
   const args = { command: null, positional: [], base: null };
@@ -176,7 +179,9 @@ async function request(url, init) {
     fail(
       err.message,
       err.outcomeUnknown
-        ? "the request may have reached the service; check room status before retrying. A lost publish response can leave a room without saved credentials"
+        ? init?.headers?.["idempotency-key"]
+          ? "the request may have reached the service; run npx grill-with-me publish --recover to recover the saved original publication within 24 hours"
+          : "the request may have reached the service; check room status before retrying"
         : "check your connection, or --base",
     );
   }
@@ -187,8 +192,8 @@ async function request(url, init) {
         ? body.errors.join("\n  ") : null) ??
       (typeof body.error === "string" ? body.error : null) ??
       `server said ${res.status} for ${url}`;
-    const token = init?.headers?.authorization?.replace(/^Bearer /, "");
-    const safeDetail = token ? String(detail).replaceAll(token, "[redacted]") : detail;
+    const secrets = [init?.headers?.authorization?.replace(/^Bearer /, ""), init?.headers?.["idempotency-key"]].filter(Boolean);
+    const safeDetail = secrets.reduce((text, secret) => text.replaceAll(secret, "[redacted]"), String(detail));
     fail(safeDetail, res.status === 404 ? "double-check the room key" : undefined);
   }
   return body;
@@ -409,14 +414,20 @@ async function readRoomFile(path) {
 }
 
 async function cmdPublish(args) {
-  const base = normalizeHostOrigin(args.base ?? DEFAULT_BASE);
   const root = await realpath(process.cwd());
   const file = args.positional[0] ?? "grill-room.json";
-  const raw = await readRoomFile(file);
+  if (args.recover && args.positional.length) fail("--recover uses the saved original body; omit the file argument");
+  const publication = await preparePublication(root, {
+    origin: args.base ?? (args.recover ? process.env.GRILL_WITH_ME_URL : DEFAULT_BASE),
+    body: args.recover ? undefined : await readRoomFile(file),
+    recover: args.recover, newPublication: args.newPublication, dryRun: args.dryRun,
+  });
+  const base = publication.origin;
+  if (args.dryRun) { console.log(`Would publish the saved/requested room to ${base}; no files changed or request sent.`); return; }
   await prepareHostStorage(root);
 
-  const result = await postJson(`${base}/api/rooms`, raw);
-  if (!isRoomKey(result.key)) fail("server returned an invalid room key");
+  const result = await postJson(`${base}/api/rooms`, publication.body, { "idempotency-key": publication.capability });
+  validatePublicationAcknowledgement(result, publication.capability);
   try {
     await saveConfig(root, {
       base,
@@ -424,7 +435,7 @@ async function cmdPublish(args) {
       hostToken: result.hostToken,
     });
   } catch (err) {
-    fail("room creation may have succeeded, but host credentials could not be saved", err.message);
+    fail("room creation may have succeeded, but host credentials could not be saved", `${err.message}. Fix local storage, then run npx grill-with-me publish --recover`);
   }
   const roomUrl = `${base}/r/${result.key}`;
 
