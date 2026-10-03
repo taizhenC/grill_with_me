@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { join, resolve, relative, dirname, basename } from "node:path";
 import { tmpdir, homedir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { StringDecoder } from "node:string_decoder";
 import { cases, createFixture, repository } from "../evals/fixtures.mjs";
 import { validateSpec } from "../cli/spec-format.mjs";
 
@@ -44,6 +45,11 @@ export async function invoke(command, args, cwd, prompt, timeoutMs = MAX_CALL_MS
       detached: process.platform !== "win32",
       stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, NO_COLOR: "1" } });
     let stdout = "", stderr = "", bytes = 0, stopped = null, firstObservedArtifact = null;
+    const stdoutDecoder = new StringDecoder("utf8"), stderrDecoder = new StringDecoder("utf8");
+    let flushed = false;
+    const flush = () => {
+      if (!flushed) { stdout += stdoutDecoder.end(); stderr += stderrDecoder.end(); flushed = true; }
+    };
     const watcher = artifactPath ? setInterval(() => {
       if (firstObservedArtifact === null) void readFile(artifactPath, "utf8").then(content => {
         if (content && firstObservedArtifact === null) firstObservedArtifact = content;
@@ -56,21 +62,23 @@ export async function invoke(command, args, cwd, prompt, timeoutMs = MAX_CALL_MS
     const timer = setTimeout(() => stop("timeout"), timeoutMs);
     child.stdout.on("data", chunk => {
       bytes += chunk.length;
-      if (bytes > MAX_BYTES) stop("output-limit"); else stdout += chunk.toString();
+      if (bytes > MAX_BYTES) stop("output-limit"); else stdout += stdoutDecoder.write(chunk);
     });
     child.stderr.on("data", chunk => {
       bytes += chunk.length;
-      if (bytes > MAX_BYTES) stop("output-limit"); else stderr += chunk.toString();
+      if (bytes > MAX_BYTES) stop("output-limit"); else stderr += stderrDecoder.write(chunk);
     });
     child.on("error", error => {
       clearTimeout(timer);
       clearInterval(watcher);
+      flush();
       resolvePromise({ startedAt, durationMs: Date.now() - start, exitCode: null,
         stopped: "spawn-error", stdout, stderr: `${stderr}\n${error.message}` });
     });
     child.on("close", exitCode => {
       clearTimeout(timer);
       clearInterval(watcher);
+      flush();
       resolvePromise({ startedAt, durationMs: Date.now() - start, exitCode, stopped, stdout, stderr, firstObservedArtifact });
     });
     child.stdin.on("error", () => {});
@@ -206,7 +214,7 @@ async function run(config) {
   if (version.exitCode !== 0) throw new Error(`CLI version probe failed: ${version.stderr}`);
   const manifest = { startedAt: new Date().toISOString(), agent: config.agent, version: version.stdout.trim(),
     node: process.version, sourceFiles: {}, limits: { callMs: MAX_CALL_MS, runMs: MAX_RUN_MS, calls: MAX_CALLS, outputBytes: MAX_BYTES, claudePerCallBudgetUsd: 1 },
-    isolation: "Synthetic temp fixture only; no CLI model override; fresh CLI per phase with verbatim interview transcript replay; no response schema or structure repair prompts.",
+    isolation: "Requested scope: synthetic temp fixture only; observed read compliance requires trace review and is not enforced filesystem read confinement. No CLI model override; fresh CLI per phase with verbatim interview transcript replay; no response schema or structure repair prompts.",
     cases: [], stopped: null };
   const cliSources = (await readdir(join(repository, "cli"))).filter(path => path.endsWith(".mjs") || path === "package.json").map(path => `cli/${path}`);
   for (const path of ["lib/pack.ts", "lib/schema.ts", "skills/check-contract/SKILL.md", "skills/amend-contract/SKILL.md",

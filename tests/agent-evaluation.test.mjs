@@ -106,6 +106,14 @@ describe("agent evidence handling", () => {
     expect(selectedEvents("codex", JSON.stringify({ type: "item.completed", item: { type: "reasoning", text: "secret" } }))).toEqual([]);
   });
 
+  it("preserves UTF-8 characters fragmented across stdout and stderr chunks", async () => {
+    const fragmented = `process.stdout.write(Buffer.from([0xe2]));
+process.stderr.write(Buffer.from([0xf0, 0x9f]));
+setTimeout(() => { process.stdout.write(Buffer.from([0x86, 0x92])); process.stderr.write(Buffer.from([0x9a, 0x80])); }, 40);`;
+    const result = await invoke(process.execPath, ["-e", fragmented], await temporary(), "", 2000);
+    expect(result).toMatchObject({ exitCode: 0, stopped: null, stdout: "→", stderr: "🚀" });
+  });
+
   it("terminates an overlong fixture process and records failure rather than manufacturing a result", async () => {
     const wrapper = `const { spawn } = require('node:child_process');
 spawn(process.execPath, ['-e', "console.log('grandchild-ready'); setInterval(() => {}, 1000)"], { stdio: 'inherit' });
