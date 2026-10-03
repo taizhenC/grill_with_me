@@ -7,8 +7,8 @@ dependencies and supports Node 22.15+ within Node 22, or Node 24.
 This source package is being prepared for its first public beta. Registry
 publication remains pending. The default hosted service is live at
 [grill-with-me.vercel.app](https://grill-with-me.vercel.app). Until a release is
-published, install a locally packed archive or use the source CLI. The root
-[README](https://github.com/taizhenC/grill_with_me#readme) explains setup against
+published, install a locally packed archive or use the source CLI. The
+[setup guide](https://github.com/taizhenC/grill_with_me/blob/main/doc/getting-started.md) explains setup against
 the hosted service; the local-service example below is optional. The application
 repository is
 [taizhenC/grill_with_me](https://github.com/taizhenC/grill_with_me).
