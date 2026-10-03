@@ -5,6 +5,7 @@ import { link, mkdir, mkdtemp, readFile, rmdir, stat, writeFile } from "node:fs/
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { pathToFileURL } from "node:url";
 import { POST } from "@/app/api/rooms/route";
 import { getStore, MemoryStore, setStore } from "@/lib/store";
 import { resetRateLimit } from "@/lib/rate-limit";
@@ -56,10 +57,28 @@ async function checkout() {
   await writeFile(join(currentDirectory, "grill-room.json"), body);
   return currentDirectory;
 }
-async function run(args: string[], cwd: string) {
+async function run(args: string[], cwd: string, orderingRole?: "A" | "B") {
   const env: NodeJS.ProcessEnv = { ...process.env, NO_COLOR: "1" }; delete env.GRILL_WITH_ME_URL; delete env.GRILL_WITH_ME_TOKEN;
-  try { return { code: 0, ...await exec(process.execPath, [CLI, ...args], { cwd, env, timeout: 20_000 }) }; }
+  const preload = orderingRole ? ["--import", pathToFileURL(join(__dirname, "fixtures/publication-ordering.mjs")).href] : [];
+  if (orderingRole) env.GRILL_PUBLICATION_ORDERING_ROLE = orderingRole;
+  try { return { code: 0, ...await exec(process.execPath, [...preload, CLI, ...args], { cwd, env, timeout: 20_000 }) }; }
   catch (error) { const value = error as { code: number; stdout: string; stderr: string }; return { code: value.code, stdout: value.stdout, stderr: value.stderr }; }
+}
+
+async function expectSingleRecoverablePublication(cwd: string) {
+  expect(createdKeys.size).toBeLessThanOrEqual(1);
+  const original = await readFile(join(cwd, RECOVERY), "utf8");
+  const saved = JSON.parse(original);
+  expect(saved).toMatchObject({ version: 1, origin: base, body });
+  expect(saved.capability).toMatch(/^v1\.[0-9]+\.[a-f0-9]{64}$/);
+  const recovered = await run(["publish", "--recover"], cwd);
+  expect(recovered.code, recovered.stderr).toBe(0);
+  expect(storedBeforeSend).toBe(true);
+  expect(createdKeys.size).toBe(1);
+  expect(await readFile(join(cwd, RECOVERY), "utf8")).toBe(original);
+  const config = JSON.parse(await readFile(join(cwd, ".grill-with-me.json"), "utf8"));
+  expect(config).toMatchObject({ base, roomKey: lastCreated.key, hostToken: lastCreated.hostToken });
+  expect([...createdKeys]).toEqual([config.roomKey]);
 }
 
 describe("CLI publication recovery", { timeout: 20_000 }, () => {
@@ -183,11 +202,23 @@ describe("CLI publication recovery", { timeout: 20_000 }, () => {
   });
   it("concurrent first publishers cannot replace each other's pending capability and create two rooms", async () => {
     const cwd = await checkout();
-    const results = await Promise.all([run(["publish", "--base", base], cwd), run(["publish", "--base", base], cwd)]);
-    expect(results.some((result) => result.code === 0)).toBe(true);
-    expect(createdKeys.size).toBe(1);
-    expect((await run(["publish", "--recover"], cwd)).code).toBe(0);
-    expect(createdKeys.size).toBe(1);
+    await Promise.all([run(["publish", "--base", base], cwd), run(["publish", "--base", base], cwd)]);
+    await expectSingleRecoverablePublication(cwd);
+  });
+  it("recovers one unchanged publication when both first publishers safely stop before sending", async () => {
+    const cwd = await checkout();
+    const [winner, contender] = await Promise.all([
+      run(["publish", "--base", base], cwd, "A"),
+      run(["publish", "--base", base], cwd, "B"),
+    ]);
+    expect(winner.code, winner.stderr).not.toBe(0);
+    expect(winner.stderr).toContain("temporary credential file");
+    expect(contender.code, contender.stderr).not.toBe(0);
+    expect(contender.stderr).toContain("state changed");
+    expect(calls).toBe(0);
+    expect(await stat(join(cwd, `${RECOVERY}.tmp`)).then(() => true, () => false)).toBe(false);
+    await expectSingleRecoverablePublication(cwd);
+    expect(calls).toBe(1);
   });
   it("rejects a short host token in a publication acknowledgement and preserves recovery", async () => {
     const cwd = await checkout(); malformedToken = true;
