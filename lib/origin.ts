@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { publicOrigin } from "./public-origin";
 
 /**
  * The origin this request arrived on. Every command the app prints has to
@@ -7,12 +8,5 @@ import { headers } from "next/headers";
  * deployment is worse than no command at all.
  */
 export async function requestOrigin(): Promise<string> {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
-  const proto =
-    h.get("x-forwarded-proto") ??
-    (host.startsWith("localhost") || host.startsWith("127.0.0.1")
-      ? "http"
-      : "https");
-  return `${proto}://${host}`;
+  return publicOrigin(await headers(), process.env);
 }

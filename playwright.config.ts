@@ -18,6 +18,7 @@ export default defineConfig({
     env: {
       NODE_ENV: "test", GRILL_STORE: "memory", SUPABASE_URL: "",
       SUPABASE_SERVICE_KEY: "", VERCEL: "", GRILL_TRUST_PROXY: "",
+      GRILL_PUBLIC_ORIGIN: "", CRON_SECRET: "",
     },
   },
 });

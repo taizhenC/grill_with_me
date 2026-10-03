@@ -145,3 +145,14 @@ test("an oversized decoded response is rejected without rendering raw reply cont
   await expect(page.getByRole("alert", { name: "Publication status" })).toContainText("Could not confirm publication");
   await expect(page.getByText("DO_NOT_RENDER")).toHaveCount(0);
 });
+
+test("untrusted forwarded origins cannot enter links or printed shell commands", async ({ request }) => {
+  const response = await request.get("/", { headers: {
+    "x-forwarded-host": "evil.example;touch sentinel", "x-forwarded-proto": "http",
+  } });
+  expect(response.status()).toBe(200);
+  const html = await response.text();
+  expect(html).not.toContain("evil.example");
+  expect(html).not.toContain("touch sentinel");
+  expect(html).toContain("--base http://127.0.0.1:3108");
+});
