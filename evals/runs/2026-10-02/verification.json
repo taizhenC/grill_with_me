@@ -26,5 +26,14 @@
     "unicodeReplacementCharacters": 0,
     "manualBehaviorReview": "See grades.md for independent original/corrected population grades, timeout artifacts and known scope failures."
   },
+  "sanitizerSafetyAmendment": {
+    "purpose": "Reject different-drive selections, root/ancestor junctions and hardlinked/special files before any mutation; recheck opened file ownership.",
+    "actualSubprocessCasesPassed": 7,
+    "postAmendmentFocusedTests": { "filesPassed": 4, "testsPassed": 60, "exitCode": 0 },
+    "postAmendmentTypecheckExitCode": 0,
+    "alternateDrive": "Actual local D-drive sentinel rejection via explicit GRILL_EVAL_OTHER_DRIVE_TEMP; conditional when unavailable elsewhere.",
+    "modelsInvoked": 0,
+    "measuredArtifactsChanged": 0
+  },
   "integration": "Root agent will run combined tests/build/runtime/browser on merged main; no full current branch build or live hosted release is claimed here."
 }
