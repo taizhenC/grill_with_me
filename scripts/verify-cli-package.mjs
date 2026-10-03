@@ -54,7 +54,7 @@ try {
     assert.ok(archive.files.some((file) => file.path === path), `Archive is missing ${path}`);
   }
   assert.ok(!archive.files.some((file) =>
-    /(^|\/)(?:\.env[^/]*|\.grill-with-me(?:-host)?\.json[^/]*|\.room(?:\.grill-tmp)?|node_modules)(?:\/|$)/.test(file.path),
+    /(^|\/)(?:\.env[^/]*|\.grill-with-me|\.grill-with-me(?:-host)?\.json[^/]*|\.room(?:\.grill-tmp)?|node_modules)(?:\/|$)/.test(file.path),
   ), "Archive must not contain local credentials, room receipts, or installed dependencies");
 
   const consumer = join(workspace, "consumer with spaces");

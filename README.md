@@ -67,7 +67,7 @@ npx grill-with-me join <room-key>     # or paste the whole link
 ```
 
 Run it from your repo root. Then run `/grill-my-role` in your editor — or tell
-your agent: *read `grill/MY-ROLE.md` and follow it*. Answer the questions;
+your agent: *read `.grill-with-me/MY-ROLE.md` and follow it*. Answer the questions;
 commit the spec it writes. Nothing to install, no browser needed after the
 link.
 
@@ -96,20 +96,29 @@ before it writes anything; inspect or back up those files before choosing
 Malformed or duplicate fences and invalid local UTF-8 stop installation even
 with `--force`. Specs and contracts are never installation targets.
 
-The member receipt, `grill/.room`, records the normalized server origin, room,
-role, version, and installed content hashes. A saved role is reused only for
-that same origin and room. Host skills use a separate origin-bound receipt,
-`.grill-with-me-host.json`. Old receipts without origin/hashes require an explicit
-role; existing files are adopted only if they match the requested pack exactly,
-otherwise replacement requires `--force`.
+The member receipt, `.grill-with-me/member.json`, records the normalized server
+origin, room, role, version, and installed content hashes. Its role instructions
+live beside it in `.grill-with-me/MY-ROLE.md`. A saved role is reused only for that
+same origin and room. Member hashes normalize CRLF/LF differences so ordinary Git
+checkout conversion does not look like an edit. Host skills retain a separate
+origin-bound receipt, `.grill-with-me-host.json`.
 
-Installation adds receipt and temporary-file rules to `.gitignore`, and works
-without Git installed. Ignore rules do not untrack an already committed receipt
-or override a nested `.gitignore`: check `git ls-files grill/.room` and
-`git check-ignore --no-index grill/.room` when migrating an existing checkout.
-After backing up a tracked receipt, use `git rm --cached grill/.room` and commit
-that removal to keep future role selection local. Shared role payload files such
-as `grill/MY-ROLE.md` still need the later local-role layout upgrade.
+The CLI excludes the entire `/.grill-with-me/` directory in `.gitignore` and
+checks that Git neither tracks it nor overrides that directory exclusion.
+Nested ignore rules cannot reinclude files below an excluded parent directory.
+Plain folders still work without Git; inside a Git checkout, the Git executable
+is required to verify local state. `--force` cannot bypass tracked-local-state
+rejection. Back up an accidentally tracked local directory, remove it from the
+index, and rejoin with an explicit `--role` after inspecting its contents.
+
+Migration requires choosing `--role` once. Old `grill/.room` and
+`grill/MY-ROLE.md` are retained unchanged as inactive files, including tracked
+files and edited notes. They never select the current member's role. Compare
+old notes with the new local role instructions before retiring them from Git.
+A valid old receipt can verify unchanged shared pack files during migration;
+unverified differences still require inspection and explicit `--force`.
+Commit the updated role-neutral AGENTS block, command adapter, and ignore rules
+with shared project/spec/contract artifacts. Each teammate runs `join` locally.
 
 `join` and `host` validate the complete downloaded file set before installation.
 Only the standard pack paths are accepted, with at most 256 KiB of UTF-8 content
@@ -139,12 +148,13 @@ the contract it leads to, and a check report.
 
 ```
 AGENTS.md                                  # a fenced block; your own content is kept
+.grill-with-me/                            # ignored; never commit
+  MY-ROLE.md                               # this checkout's role and interview
+  member.json                              # local origin/room/role/version + hashes
 grill/
   PROJECT.md                               # shared: the brief from the host grill
-  MY-ROLE.md                               # yours: scope, and the grill itself
-  .room                                    # ignored local origin/room/role/version + hashes
 .claude/
-  commands/grill-my-role.md                # so /grill-my-role just works
+  commands/grill-my-role.md                # shared adapter; reads local role instructions
   skills/check-contract/SKILL.md
   skills/amend-contract/SKILL.md
 ```
