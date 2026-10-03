@@ -1,52 +1,70 @@
 ---
 name: amend-contract
-description: Amend grill/CONTRACT.md when the team changes an agreement. Anyone can run this; amendments are authoritative over the original contract.
+description: Stage and finalize a recorded contract amendment, updating current prose/types and append-only history together. Anyone can run this; pending role agreement stays visible.
 ---
 
-The contract was written hours ago and reality has moved. Your job is to
-record the new agreement so `check-contract` stops reporting it as drift —
-a contract that can't be corrected becomes noise, and a noisy check gets
-ignored.
+Record the team's new agreement so check-contract can distinguish changed
+requirements from implementation drift. Ask one question at a time to pin the
+change to a concrete endpoint, field, table, or ownership agreement.
 
-## Input
+## Read before staging
 
-The user tells you what changed, in plain words ("we moved auth to a
-header", "shadeScore is now 0–100 int, not 0–1 float"). Ask exactly enough
-to pin the change to specific contract lines — which endpoint, which field,
-which table. One question at a time.
+Run `npx grill-with-me contract-status`. Read `grill/CONTRACT.md`, optional
+`grill/contract.ts`, `grill/CONTRACT-HISTORY.jsonl`, and
+`grill/CONTRACT-CHANGES.md`. Use the returned revision ID as the exact parent;
+contract revision is independent of the member's room packVersion.
 
-## What to check before writing
+Stop on conflicting hashes or unfinished finalization. Retry the same staged
+proposal after fixing its filesystem error; never erase its journal to bypass
+recovery. Offline unknown source freshness is unverified, not proof of drift.
+An old unrecorded contract must first be explicitly adopted with stable IDs and
+the legacy history hash from status. Preserve its existing prose/history and
+show the user any agreement changes; do not silently replace an old contract.
 
-- Read `grill/CONTRACT.md` and `grill/CONTRACT-CHANGES.md`.
-- Name the roles the change touches. If the user is one of them and the
-  other role hasn't been told, say so: "this changes Backend's response
-  shape — have you agreed this with them?" Record their answer in the
-  amendment. Do not refuse to write it — recording an un-agreed change
-  loudly beats an undocumented verbal one.
+Name the roles touched by the change and ask whether they agreed when their
+agreement is unknown. Do not refuse to record a not yet agreed change. Record
+it as approval `pending` with those role slugs in `pendingRoles`; never claim
+agreement for an absent role. `agreedBy` records who requested/agreed the change,
+not proof that every touched role approved it.
 
-## Write
+## Stage and finalize one change
 
-1. **Append** to `grill/CONTRACT-CHANGES.md` (create it if absent):
+1. Copy the current prose to `grill/CONTRACT.next.md` and update only affected
+   stable agreement blocks **in place in that draft**. Retain each
+   `### [agreement:api.rank.response]` ID across revisions. Do not edit the
+   canonical artifacts directly or batch unrelated amendments.
+2. If types exist, stage matching `grill/contract.next.ts` and select
+   `types: "replace"`, or select `preserve` only when types remain correct
+   unchanged. Non-TypeScript contracts use `none`; it cannot delete existing
+   types. The helper cannot prove prose/type semantic equivalence: review both.
+3. Write `grill/CONTRACT-PROPOSAL.json`: schemaVersion 1, kind `amend`, exact
+   `parentRevision`, one-line summary, `changedAgreementIds`, `approval`,
+   `agreedBy`, `pendingRoles`, `types`, `amendmentResolution: []`, and
+   `resolvesPending: []`. Changed IDs include all changed prose blocks and
+   identify agreements affected by changed types. To record later approval,
+   use agreed approval and put the explicitly approved pending revision IDs
+   in `resolvesPending`; that produces a new revision without rewriting history.
+4. Run `npx grill-with-me contract-finalize`, then `contract-status`. The
+   finalizer updates canonical prose/optional types, appends the human-readable
+   changes and hash-linked JSONL history, and writes state last. History is
+   append-only. Mixed/interrupted artifacts remain unknown until identical
+   retry; edited journal outputs, changed targets, or stale parents stop safely.
+5. For TypeScript run `npx grill-with-me contract-typecheck <consuming-tsconfig>`.
+   It checks actual bound imports and the consuming project's real typecheck
+   (`npm run typecheck` or installed compiler `--noEmit -p`). Never use
+   `npx tsc` to download tools or compile only the generated contract file.
+   Unknown or unintegrated results are not a passing typed check. Compare
+   failures with the prior baseline; identify newly mismatched producers/callers
+   and repair them before claiming typed integration passed.
 
-```markdown
-## <date> — <one-line summary>
-- Changed: <the specific agreement, old → new, concrete shapes>
-- Touches: <roles>
-- Agreed by: <who, per the user> | ⚠️ not yet agreed with <role>
-```
-
-2. **Update the affected lines in `grill/CONTRACT.md` in place**, so the
-   contract stays readable as one document. The changes file is the audit
-   trail; the contract is the current truth.
-
-3. If `grill/contract.ts` exists, update the affected types and verify they
-   still compile (`npx tsc --noEmit grill/contract.ts`).
-
-Never rewrite history in CONTRACT-CHANGES.md — it is append-only. Never
-batch unrelated changes into one entry.
+The current contract is the current truth; history records how it changed.
+Future re-merges must explicitly preserve or reconcile every amendment against
+their exact parent, so agreement changes cannot silently disappear.
+Use `doc/contract-revisions.md` for executable proposal/recovery examples.
 
 ## Hand off
 
-Tell the user: commit all changed files together, tell the team to pull,
-and if the check previously flagged this as drift, the next run will treat
-the amendment as the agreement.
+Tell the user to commit prose, optional types, both histories, and state together
+and tell the team to pull. Name pending roles, source freshness, and typecheck
+results. A successful file finalization does not claim human approval, runtime
+semantic equivalence, or that implementation already matches the amended types.

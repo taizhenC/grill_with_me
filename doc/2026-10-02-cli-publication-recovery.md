@@ -35,6 +35,8 @@ redacted. No capability or host token is printed or placed in a command/URL.
 - `0651a71` — reject malformed publication credentials after independent review,
   preserve recovery on failure, and add default repository ignores.
 - Completion commit — this validation record.
+- Final integration commit — preserve all 18 packaged helpers while integrating
+  contract revision commands from main `6091f0e`; repeat source/archive checks.
 
 All feature commits use author and committer `taizhenC <tzhcheung@gmail.com>` and
 contain no coauthor trailers.
@@ -44,7 +46,7 @@ contain no coauthor trailers.
 Local Windows, Node 22.15.0. No public service or registry was mutated.
 
 - `npm ci --no-audit --no-fund` passed before implementation.
-- Final source suite: **486 passed, 8 skipped**, 26 test files.
+- Final integrated source suite: **528 passed, 8 skipped**, 29 test files.
 - Final `npm run typecheck` and `git diff --check` passed.
 - Next 16.3.8 production build passed on the integrated backend/browser baseline;
   the later CLI-only acknowledgement tightening was covered by the final tests
@@ -56,6 +58,10 @@ Local Windows, Node 22.15.0. No public service or registry was mutated.
   then `tests/cli`, spec-format and merge-preflight suites through
   `GRILL_CLI_TEST_BIN`: **247 passed, 8 skipped**, 9 test files. CLI subprocesses
   use the installed archive; pure format tests retain their source imports.
+- After integrating the newer contract commands, another fresh installed archive
+  passed **34 publication/contract/type-integration tests** across three files.
+  The updated package smoke passed archive, version/help, spec/merge and contract
+  revision gates, verifying that neither feature lost its helpers or commands.
 - The 15 recovery cases exercise the actual API handler behind loopback HTTP:
   lost reply and new process, changed local body, same-request replay, explicit
   new room, different destination, expiry, deletion, post-commit local I/O failure,

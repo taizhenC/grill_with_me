@@ -132,9 +132,11 @@ describe("merge-contract skill", () => {
     expect(skill).toContain("Never resolve a contradiction yourself");
   });
 
-  it("emits contract.ts on TypeScript stacks and verifies it compiles", () => {
-    expect(skill).toContain("grill/contract.ts");
-    expect(skill).toContain("tsc --noEmit");
+  it("stages typed outputs and finalizes revision history before the consuming project check", () => {
+    expect(skill).toContain("grill/contract.next.ts");
+    expect(skill).toContain("contract-finalize");
+    expect(skill).toContain("contract-typecheck <consuming-tsconfig>");
+    expect(skill).toContain("amendmentResolution");
   });
 });
 
@@ -146,8 +148,9 @@ describe("check-contract skill", () => {
     expect(skill).toContain("Derive the file set from the contract");
   });
 
-  it("treats amendments as authoritative (decision 16)", () => {
-    expect(skill).toContain("Amendments override");
+  it("uses finalized current prose and keeps pending amendments visible", () => {
+    expect(skill).toContain("current truth");
+    expect(skill).toContain("Pending roles");
   });
 
   it("attributes findings to roles and offers three outcomes (decision 9)", () => {
@@ -162,8 +165,11 @@ describe("check-contract skill", () => {
     expect(skill).toContain("NEW");
   });
 
-  it("checks pack staleness via .room (decision 18)", () => {
-    expect(skill).toContain("grill/.room");
+  it("uses contract freshness independently of pack versions and reads only local member identity", () => {
+    expect(skill).toContain("contract-status");
+    expect(skill).toContain("Never compare");
+    expect(skill).toContain(".grill-with-me/member.json");
+    expect(skill).toContain("do not infer a current role from legacy shared");
     expect(skill).toContain("stale");
   });
 });
@@ -184,7 +190,9 @@ describe("amend-contract skill", () => {
 
   it("keeps contract.ts in sync when present", () => {
     expect(skill).toContain("grill/contract.ts");
-    expect(skill).toContain("tsc --noEmit");
+    expect(skill).toContain("grill/contract.next.ts");
+    expect(skill).toContain("contract-finalize");
+    expect(skill).toContain("contract-typecheck <consuming-tsconfig>");
   });
 });
 

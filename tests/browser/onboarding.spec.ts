@@ -105,6 +105,7 @@ test("invalid/oversize uploads fail locally and an interrupted publication repor
 
 test("failed claims and malformed publish acknowledgements produce readable recovery states", async ({ page }) => {
   const key = await pastePublish(page);
+  await page.getByRole("button", { name: "I saved my host token" }).click();
   await page.goto(`/r/${key}`);
   await page.route("**/claim", (route) => route.abort("connectionreset"));
   await page.getByRole("button", { name: "This one's mine", exact: true }).first().click();
@@ -178,6 +179,7 @@ test("a committed publication with a lost reply recovers the same room and token
   await page.unroute("**/api/rooms");
   await page.reload();
   await expect(page.getByRole("button", { name: "Recover saved publication" })).toBeVisible();
+  await page.getByText("Can't drag a file here? Paste it instead").click();
   await expect(page.getByRole("button", { name: "Publish this" })).toBeDisabled();
   const replay = page.waitForRequest("**/api/rooms");
   await page.getByRole("button", { name: "Recover saved publication" }).click();

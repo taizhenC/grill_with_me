@@ -36,6 +36,23 @@ npx --no grill-with-me check-spec
 Commit each role spec. The host runs the merge-contract skill once the expected
 specs are present. Members can then run check-contract or amend-contract.
 
+The contract skills stage `grill/CONTRACT.next.md`, optional
+`grill/contract.next.ts`, and `grill/CONTRACT-PROPOSAL.json`, then run
+`contract-finalize`. Commit the current prose/types, both append-only histories,
+and `CONTRACT-STATE.json` together. `contract-status` reports local contract
+freshness separately from room pack versions, including offline uncertainty
+and pending role agreements. Re-merges must preserve or explicitly reconcile
+recorded amendments; existing unrecorded contracts require explicit adoption.
+
+`contract-typecheck [tsconfig]` checks actual imports using project-installed
+TypeScript and runs the consuming project's declared typecheck or installed
+`tsc --noEmit -p`. Unused imports are unintegrated; missing tools or solution
+configs are unknown. It never downloads a compiler. File finalization can
+resume an identical interrupted proposal after an I/O error; altered outputs
+stop for reconciliation. See the repository's
+[contract revision guide](https://github.com/taizhenC/grill_with_me/blob/main/doc/contract-revisions.md)
+for exact proposals, legacy adoption, and recovery.
+
 ```sh
 npx --no grill-with-me status <room-url>
 npx --no grill-with-me republish grill-room.json
