@@ -2,6 +2,8 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { GrillRoom } from "./schema";
 import { generateRoomKey, generateHostToken } from "./keys";
 import { storeConfig } from "./store-config";
+import type { PublicationRequest, PublicationResult } from "./publication";
+import { PublicationError, PUBLICATION_CLOCK_SKEW_MS } from "../cli/publication-capability.mjs";
 
 /**
  * Persistence for rooms. Two implementations behind one interface:
@@ -33,7 +35,7 @@ export type StoredRoom = {
 export type PublicRoom = Omit<StoredRoom, "hostToken">;
 
 export interface RoomStore {
-  create(room: GrillRoom): Promise<{ key: string; hostToken: string }>;
+  create(room: GrillRoom, publication?: PublicationRequest): Promise<PublicationResult>;
   get(key: string): Promise<StoredRoom | null>;
   /** Replace the room content; bumps version. Requires the host token. */
   republish(key: string, hostToken: string, room: GrillRoom): Promise<number>;
@@ -62,11 +64,13 @@ function isExpired(stored: StoredRoom): boolean {
 
 export class MemoryStore implements RoomStore {
   private rooms = new Map<string, StoredRoom>();
+  private publications = new Map<string, PublicationRequest & { stored: StoredRoom | null }>();
 
   async delete(key: string, hostToken: string) {
     const stored = this.rooms.get(key);
     if (!stored) throw new NotFoundError(key);
     if (stored.hostToken !== hostToken) throw new ForbiddenError();
+    for (const publication of this.publications.values()) if (publication.stored === stored) publication.stored = null;
     this.rooms.delete(key);
   }
 
@@ -75,12 +79,35 @@ export class MemoryStore implements RoomStore {
     let deleted = 0;
     for (const [key, stored] of this.rooms) {
       if (deleted >= limit) break;
-      if (isExpired(stored)) { this.rooms.delete(key); deleted++; }
+      if (isExpired(stored)) {
+        for (const publication of this.publications.values()) if (publication.stored === stored) publication.stored = null;
+        this.rooms.delete(key); deleted++;
+      }
     }
     return deleted;
   }
 
-  async create(room: GrillRoom) {
+  purgePublications(limit: number): number {
+    let deleted = 0;
+    for (const [hash, publication] of this.publications) {
+      if (deleted >= limit) break;
+      if (Date.parse(publication.expiresAt) <= Date.now()) { this.publications.delete(hash); deleted++; }
+    }
+    return deleted;
+  }
+
+  async create(room: GrillRoom, publication?: PublicationRequest): Promise<PublicationResult> {
+    if (publication) {
+      if (Date.parse(publication.issuedAt) > Date.now() + PUBLICATION_CLOCK_SKEW_MS) throw new PublicationError("publication_invalid", "publication clock is ahead of the service", 400);
+      if (Date.parse(publication.expiresAt) <= Date.now()) throw new PublicationError("publication_gone", "publication recovery window has expired", 410);
+      const existing = this.publications.get(publication.hash);
+      if (existing) {
+        if (existing.origin !== publication.origin || existing.payloadHash !== publication.payloadHash) throw new PublicationError("publication_conflict", "publication recovery belongs to another origin or payload", 409);
+        const stored = existing.stored && this.rooms.get(existing.stored.key);
+        if (!stored || stored !== existing.stored || isExpired(stored)) throw new PublicationError("publication_gone", "publication room was removed or expired", 410);
+        return { key: stored.key, hostToken: stored.hostToken, recovery: { expiresAt: existing.expiresAt, replayed: true } };
+      }
+    }
     for (let attempt = 0; attempt < ROOM_CREATION_ATTEMPTS; attempt++) {
       const key = generateRoomKey();
       // Expired entries still own their keys until purged; never revive a link.
@@ -95,7 +122,8 @@ export class MemoryStore implements RoomStore {
         createdAt: new Date().toISOString(),
         expiresAt: expiry(),
       });
-      return { key, hostToken };
+      if (publication) this.publications.set(publication.hash, { ...publication, stored: this.rooms.get(key)! });
+      return { key, hostToken, ...(publication ? { recovery: { expiresAt: publication.expiresAt, replayed: false } } : {}) };
     }
     throw new Error("room creation failed: unique key retries exhausted");
   }
@@ -166,10 +194,27 @@ export class SupabaseStore implements RoomStore {
     if (error || data !== true) throw new Error("room deletion unavailable");
   }
 
-  async create(room: GrillRoom) {
+  async create(room: GrillRoom, publication?: PublicationRequest): Promise<PublicationResult> {
     const hostToken = generateHostToken();
     for (let attempt = 0; attempt < ROOM_CREATION_ATTEMPTS; attempt++) {
       const key = generateRoomKey();
+      if (publication) {
+        const { data, error } = await this.db.rpc("create_room_recoverable", {
+          p_capability_hash: publication.hash, p_payload_hash: publication.payloadHash,
+          p_origin: publication.origin, p_issued_at: publication.issuedAt,
+          p_key: key, p_host_token: hostToken, p_room: room,
+        }).abortSignal(AbortSignal.timeout(5000));
+        if (error?.code === "PT400") throw new PublicationError("publication_invalid", "invalid publication recovery capability or clock", 400);
+        if (error?.code === "PT409") throw new PublicationError("publication_conflict", "publication recovery belongs to another origin or payload", 409);
+        if (error?.code === "PT410") throw new PublicationError("publication_gone", "publication recovery expired or its room was removed", 410);
+        if (error?.code === "23505" && error.message === 'duplicate key value violates unique constraint "rooms_key_key"') continue;
+        if (error) throw new Error("publication recovery backend unavailable");
+        if (!data || typeof data.key !== "string" || typeof data.hostToken !== "string" ||
+            typeof data.recovery?.replayed !== "boolean" || Date.parse(data.recovery.expiresAt) !== Date.parse(publication.expiresAt)) {
+          throw new Error("publication recovery backend returned an invalid result");
+        }
+        return { key: data.key, hostToken: data.hostToken, recovery: { replayed: data.recovery.replayed, expiresAt: publication.expiresAt } };
+      }
       const { error } = await this.db.from("rooms").insert({
         key,
         host_token: hostToken,

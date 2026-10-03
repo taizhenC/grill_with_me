@@ -5,7 +5,7 @@ alert or public deployment has been created by committing them.
 
 ## Configure and verify
 
-Apply all migrations in order, including `0004_retention_and_room_deletion.sql`.
+Apply all migrations in order, including `0005_publication_recovery.sql`.
 Deletion/cleanup functions are security invoker, use an empty search path and
 allow only service-role execution. Keep RLS enabled without browser policies.
 Verify actual Supabase grants and RPC/schema-cache availability after migration;
@@ -39,13 +39,15 @@ the application stops starting batches after 20 seconds or 20 batches.
 
 ## Results and monitoring
 
-Each atomic database batch deletes at most 1,000 expired rooms and 2,000 client
-hashes whose window expired at least one hour ago. Global counters remain.
-One invocation removes at most 20,000 rooms and 40,000 hashes; time limits can
+Each atomic database batch deletes at most 1,000 expired rooms, 1,000 expired
+publication ledger entries and 2,000 client hashes whose window expired at least
+one hour ago. Global counters remain. One invocation removes at most 20,000 rooms,
+20,000 publication entries and 40,000 client hashes; time limits can
 stop it earlier. Busy rows are skipped and retried later; repeated/concurrent
 purges do not double-delete data.
 
-HTTP 200 returns aggregate `roomsDeleted`, `quotaBucketsDeleted`, `batches` and
+HTTP 200 returns aggregate `roomsDeleted`, `quotaBucketsDeleted`,
+`publicationRequestsDeleted`, `batches` and
 `needsAnotherRun`. Full batches or a time/batch limit set the backlog hint.
 **`needsAnotherRun=false` does not certify an empty backlog:** rows can be locked.
 If a later batch fails, earlier batches may have committed. A 503 is not proof
@@ -84,6 +86,8 @@ from public.rooms where expires_at <= clock_timestamp();
 select count(*) as stale_client_hashes, min(expires_at) as oldest_window_expiry
 from public.request_quotas
 where bucket <> 'global' and expires_at <= clock_timestamp() - interval '1 hour';
+select count(*) as expired_publications, min(expires_at) as oldest_recovery_expiry
+from public.publication_requests where expires_at <= clock_timestamp();
 ```
 
 Investigate persistent locks and retry after they clear. If daily capacity is
@@ -109,5 +113,7 @@ if rolling back to code without this route; do not drop application data for cod
 rollback. Purged rows cannot be recovered from the live database. Document backup
 retention/recovery rights before release. A restore can reintroduce deleted or
 expired rows: immediately reconcile expiry and handle host-deleted data under
-the deployment's recovery policy. This feature stores no deletion tombstones
-and cannot automatically reapply historical host deletions after backup restore.
+the deployment's recovery policy. The publication ledger only prevents retrying
+a removed publication during its 24-hour recovery window; it is not a historical
+deletion log and cannot reapply host deletions after backup restore. Keep service
+and database clocks synchronized and exclude `Idempotency-Key` headers from logs.

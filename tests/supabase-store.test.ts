@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import { SupabaseStore, NotFoundError, ForbiddenError } from "@/lib/store";
 import type { GrillRoom } from "@/lib/schema";
+import { publicationRequest } from "@/lib/publication";
+import { mintPublicationCapability, PublicationError } from "@/cli/publication-capability.mjs";
 
 const room: GrillRoom = {
   schemaVersion: 1,
@@ -26,6 +28,24 @@ function fixture(body: unknown, status = 200) {
 }
 
 describe("Supabase mutation transport", () => {
+  it("recovers the committed publication through its service-only RPC without sending the raw capability", async () => {
+    const capability = mintPublicationCapability();
+    const publication = publicationRequest(new Request("https://grill.test/api/rooms", { headers: { "idempotency-key": capability } }), room)!;
+    const committed = { key: "original-key", hostToken: "original-token", recovery: { expiresAt: publication.expiresAt, replayed: true } };
+    const { store, requests } = fixture(committed);
+    expect(await store.create(room, publication)).toEqual(committed);
+    expect(requests).toHaveLength(1);
+    expect(requests[0].url).toMatch(/\/rpc\/create_room_recoverable$/);
+    expect(requests[0].body).toMatchObject({ p_capability_hash: publication.hash, p_payload_hash: publication.payloadHash, p_origin: "https://grill.test", p_issued_at: publication.issuedAt, p_room: room });
+    expect(JSON.stringify(requests)).not.toContain(capability);
+  });
+  it.each([["PT400", 400], ["PT409", 409], ["PT410", 410]])("maps recovery error %s without echoing backend details", async (code, status) => {
+    const publication = publicationRequest(new Request("https://grill.test/api/rooms", { headers: { "idempotency-key": mintPublicationCapability() } }), room)!;
+    const error = await fixture({ code, message: "private backend detail" }, Number(status)).store.create(room, publication).catch((value) => value);
+    expect(error).toBeInstanceOf(PublicationError);
+    expect(error.status).toBe(status);
+    expect(error.message).not.toContain("private backend detail");
+  });
   it("returns the database's committed version using one RPC and no pre-read", async () => {
     const { store, requests } = fixture(17);
     expect(await store.republish("key", "token", room)).toBe(17);
