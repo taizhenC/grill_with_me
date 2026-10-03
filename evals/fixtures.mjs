@@ -4,10 +4,26 @@ import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { resolve, dirname, join } from "node:path";
 import ts from "typescript";
-import { planInstall, executeInstall, validateMemberIdentity } from "../cli/pack-install.mjs";
+import { planInstall, executeInstall, validateMemberIdentity, readInstallReceipt } from "../cli/pack-install.mjs";
 
 export const repository = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const execute = promisify(execFile);
+
+async function installedMember(directory, render, room, slug) {
+  const roomKey = "r_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  await mkdir(directory, { recursive: true });
+  const pack = render.renderPack(room, slug, roomKey, 1);
+  validateMemberIdentity({ key: roomKey, role: slug, version: 1 }, pack, roomKey, slug);
+  const plan = await planInstall(directory, pack, { kind: "member", origin: "https://synthetic.invalid",
+    roomKey, role: slug, packVersion: 1 }, null);
+  await executeInstall(directory, plan);
+  const receipt = await readInstallReceipt(directory, "member");
+  if (receipt.receiptVersion !== 2 || receipt.role !== slug) throw new Error("Installed fixture receipt is invalid");
+  const files = {};
+  for (const file of pack) files[file.path] = await readFile(join(directory, file.path), "utf8");
+  files[".gitignore"] = await readFile(join(directory, ".gitignore"), "utf8");
+  return files;
+}
 
 // Exercise the current product prompt, rather than maintaining a lookalike.
 async function renderer() {
@@ -192,16 +208,7 @@ export async function createFixture(caseId, directory) {
   if (entry.kind === "member") {
     // The selected role has no pre-existing spec: this is a fresh authorship run.
     delete files[`grill/${entry.role.slug}-spec.md`];
-    const role = room.roles.find(role => role.slug === entry.role.slug);
-    const roomKey = "r_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    await mkdir(directory, { recursive: true });
-    const pack = render.renderPack(room, role.slug, roomKey, 1);
-    validateMemberIdentity({ key: roomKey, role: role.slug, version: 1 }, pack, roomKey, role.slug);
-    const plan = await planInstall(directory, pack, { kind: "member", origin: "https://synthetic.invalid",
-      roomKey, role: role.slug, packVersion: 1 }, null);
-    await executeInstall(directory, plan);
-    for (const file of pack) files[file.path] = await readFile(join(directory, file.path), "utf8");
-    files[".gitignore"] = await readFile(join(directory, ".gitignore"), "utf8");
+    Object.assign(files, await installedMember(directory, render, room, entry.role.slug));
   } else {
     files["src/api.ts"] = `import type { TicketDatabase } from '../db/adapter';
 export const paths = { list: "/api/tickets", close: "/api/tickets/:id/close" };
@@ -223,11 +230,9 @@ export function ticketDatabase(driver: TicketDatabase): TicketDatabase {
 }
 `;
     files["check-contract.md"] = await readFile(join(repository, "skills/check-contract/SKILL.md"), "utf8");
-    files[".grill-with-me/member.json"] = '{"role":"frontend","packVersion":1}\n';
     if (entry.id !== "clean-baseline") {
       files["src/api.ts"] = files["src/api.ts"].replace("return { tickets:", "return { items:");
       files["src/TicketList.ts"] = files["src/TicketList.ts"].replace("body.tickets", "body.items");
-      files[".grill-with-me/member.json"] = '{"role":"frontend","packVersion":2}\n';
     }
     if (entry.id === "clean-no-local-role") {
       delete files[".grill-with-me/member.json"];
@@ -253,6 +258,8 @@ process.exitCode = result.ok ? 0 : 1;
   }
   const driftRoom = entry.kind === "drift" ? await validatedRoom({ ...room, roles: room.roles.map(role =>
     role.slug === "database" ? { ...role, owns: [...role.owns, "db/adapter.ts"] } : role) }) : null;
+  if (entry.kind === "drift" && entry.id !== "clean-no-local-role")
+    Object.assign(files, await installedMember(directory, render, driftRoom, "frontend"));
   const revision = entry.kind === "drift" ? await finalizeFixture(directory, files, driftRoom, entry) : null;
   return { entry, files, revision };
 }

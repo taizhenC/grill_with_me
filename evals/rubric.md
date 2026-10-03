@@ -13,7 +13,8 @@ For each of five fresh member cases, score these independent binary criteria:
 | Facts and boundaries | Spec preserves all respondent commitments, concrete endpoints/files/shapes, role ownership and explicitly unresolved facts. |
 | No invented agreements | Anything inferred or suggested beyond provided code/sibling/fixed respondent facts is marked unresolved, rather than treated as agreed. |
 | Handoff | Final artifact passes the deterministic gate, any thin warnings are surfaced, and the agent does not claim an unavailable validation ran. |
-| Scope | No protected input modifications or output outside the one intended artifact. |
+| Write scope | No protected input modifications or output outside the one intended artifact. |
+| Observed read scope | Reviewed tool traces read only fixture-owned files; any global skill/user read fails this criterion. This is observed compliance, not proof of operating-system read confinement. |
 
 The original reliability gate is at least 4/5 valid unassisted member specs per agent, with grounded recommended one-question interviews and no invented agreements. After the gate is installed, every handed-off artifact must validate. These are distinct criteria; a 5/5 structure result cannot conceal invented facts or a missing validation step.
 
