@@ -69,7 +69,7 @@ export function renderMyRoleMd(project: Project, role: Role): string {
 ${role.description}
 
 > **Human reading this:** run \`/${GRILL_COMMAND}\` in your AI editor, or paste
-> to your agent: _"Read grill/MY-ROLE.md and follow it."_ Then just answer the
+> to your agent: _"Read .grill-with-me/MY-ROLE.md and follow it."_ Then just answer the
 > questions — about ten minutes. Everything below is addressed to the agent.
 
 ## What you own
@@ -136,13 +136,16 @@ Before writing any code that crosses a role boundary, read
 - NEVER invent a field name, endpoint, or response shape. If what you need
   is not in the contract, stop and tell the user it needs agreeing with the
   other role first — or run the \`amend-contract\` skill.
-- \`grill/MY-ROLE.md\` is your scope. \`grill/PROJECT.md\` is the product
+- \`.grill-with-me/MY-ROLE.md\` is your local scope. \`grill/PROJECT.md\` is the product
   context.
+- If local role instructions are missing, ask the member to join with an
+  explicit role. Never select their role from old \`grill/.room\`,
+  \`grill/MY-ROLE.md\`, a teammate's spec, or a shared command description.
 - \`grill/CONTRACT-CHANGES.md\` overrides \`CONTRACT.md\` wherever they
   disagree.
 
 If \`grill/CONTRACT.md\` does not exist yet, the team is still in the
-grilling phase: follow \`grill/MY-ROLE.md\` — the user starts it by running
+grilling phase: follow \`.grill-with-me/MY-ROLE.md\` — the user starts it by running
 \`/${GRILL_COMMAND}\`.
 ${AGENTS_BLOCK_END}
 `;
@@ -154,12 +157,14 @@ ${AGENTS_BLOCK_END}
  * is the grill (decision 19); this only guarantees the member's very first
  * instruction works without depending on which skills they happen to have.
  */
-export function renderGrillCommand(role: Role): string {
+export function renderGrillCommand(): string {
   return `---
-description: Grill me about my ${role.name} role and write my spec (grill-with-me).
+description: Grill me about my locally selected role and write my spec (grill-with-me).
 ---
 
-Read \`grill/MY-ROLE.md\` in this repo and follow it exactly. First read
+Read \`.grill-with-me/MY-ROLE.md\` in this checkout and follow it exactly.
+If it is missing, ask the member to join with an explicit role; do not infer
+a role from shared files or legacy \`grill/MY-ROLE.md\`. First read
 \`grill/PROJECT.md\` and any \`grill/*-spec.md\` teammates have already
 committed, so your questions reference what exists. Then start the grill:
 one question at a time, each with your recommended answer.
@@ -167,7 +172,7 @@ one question at a time, each with your recommended answer.
 }
 
 /**
- * `grill/.room` — what this checkout joined. `check-contract` reads it for
+ * `.grill-with-me/member.json` — what this checkout joined. `check-contract` reads it for
  * staleness; the CLI reads it to know that a re-join updates the same room
  * (and which role to default to) rather than being a fresh, riskier write.
  */
@@ -230,14 +235,14 @@ export function renderPack(
   return [
     { path: "AGENTS.md", content: renderAgentsMd() },
     { path: "grill/PROJECT.md", content: renderProjectMd(room.project) },
-    { path: "grill/MY-ROLE.md", content: renderMyRoleMd(room.project, role) },
+    { path: ".grill-with-me/MY-ROLE.md", content: renderMyRoleMd(room.project, role) },
     {
-      path: "grill/.room",
+      path: ".grill-with-me/member.json",
       content: renderRoomStamp(roomKey, role.slug, version),
     },
     {
       path: `.claude/commands/${GRILL_COMMAND}.md`,
-      content: renderGrillCommand(role),
+      content: renderGrillCommand(),
     },
     ...skillFiles(MEMBER_SKILLS),
   ];

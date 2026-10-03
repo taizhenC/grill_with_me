@@ -6,8 +6,8 @@ const PACK_PATHS = {
   member: [
     "AGENTS.md",
     "grill/PROJECT.md",
-    "grill/MY-ROLE.md",
-    "grill/.room",
+    ".grill-with-me/MY-ROLE.md",
+    ".grill-with-me/member.json",
     ".claude/commands/grill-my-role.md",
     ".claude/skills/check-contract/SKILL.md",
     ".claude/skills/amend-contract/SKILL.md",

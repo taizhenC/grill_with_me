@@ -54,8 +54,8 @@ describe("renderPack", () => {
     expect(paths).toEqual([
       "AGENTS.md",
       "grill/PROJECT.md",
-      "grill/MY-ROLE.md",
-      "grill/.room",
+      ".grill-with-me/MY-ROLE.md",
+      ".grill-with-me/member.json",
       `.claude/commands/${GRILL_COMMAND}.md`,
       ".claude/skills/check-contract/SKILL.md",
       ".claude/skills/amend-contract/SKILL.md",
@@ -66,7 +66,7 @@ describe("renderPack", () => {
     const files = renderPack(room(), "frontend", "blue-tiger-42", 1);
     const command = files.find((f) => f.path.endsWith(`${GRILL_COMMAND}.md`))!;
     expect(command.content).toMatch(/^---\ndescription: /);
-    expect(command.content).toContain("grill/MY-ROLE.md");
+    expect(command.content).toContain(".grill-with-me/MY-ROLE.md");
     // Not `grill-me`: shadowing a member's installed skill would break the
     // one thing decision 19 relies on.
     expect(GRILL_COMMAND).not.toBe("grill-me");
@@ -94,7 +94,7 @@ describe("renderPack", () => {
 
   it("stamps the room key, role, and pack version (decision 18)", () => {
     const files = renderPack(room(), "frontend", "blue-tiger-42", 3);
-    const stamp = files.find((f) => f.path === "grill/.room")!;
+    const stamp = files.find((f) => f.path === ".grill-with-me/member.json")!;
     const parsed = JSON.parse(stamp.content);
     expect(parsed).toEqual({
       roomKey: "blue-tiger-42",

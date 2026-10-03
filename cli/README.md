@@ -29,7 +29,7 @@ Send the resulting room URL to your teammates. From a member's checkout:
 
 ```sh
 npx --no grill-with-me join <room-url> --role <role-slug> --name <display-name>
-# Ask your agent to read grill/MY-ROLE.md and follow it.
+# Ask your agent to read .grill-with-me/MY-ROLE.md and follow it.
 npx --no grill-with-me check-spec
 ```
 
@@ -56,15 +56,24 @@ reports for the exact release state and remaining recovery limitations.
 Re-running `join` or `host` refreshes files that still match their local content
 receipts. Edited or deleted files require inspection and explicit `--force`;
 personal text outside the owned AGENTS fence is preserved. The member receipt
-is bound to the origin and room, and a saved role is reused only there. Legacy
-receipts need an explicit role and matching files or `--force` for adoption.
+is `.grill-with-me/member.json`, bound to the origin and room, and a saved role
+is reused only there. Local instructions live in `.grill-with-me/MY-ROLE.md`.
+Shared AGENTS/command files are role-neutral. Legacy receipts require choosing
+an explicit role once; old tracked `grill/.room` and `grill/MY-ROLE.md` stay
+unchanged and inactive so edited notes can be reconciled before retirement.
 
 Each file is replaced atomically and the completed receipt is written last.
 After a filesystem failure, retry the same payload; conflicting changed payloads
 stop for inspection. A killed process can leave `*.grill-tmp`: inspect and remove
-that temporary file before retrying. Local receipts are added to `.gitignore`,
-but already tracked receipts need untracking and nested ignore rules can override
-the new rules. Shared role payload layout remains a separate migration.
+that temporary file before retrying. The whole `.grill-with-me/` directory is
+excluded from Git, preventing nested ignore negations from exposing selectors.
+The CLI rejects tracked local state and never changes the Git index. Plain
+folders need no Git executable; Git checkouts require it for verification.
+Member hashes tolerate CRLF/LF conversion in shared files. Specs, project context,
+contracts, and role-neutral adapters remain shared in Git.
+
+Custom services retain `--base` in printed publish, republish, and join commands,
+including when selected through `GRILL_WITH_ME_URL`.
 
 After a verified beta is published, `npx grill-with-me@beta ...` selects that beta
 tag. The stable onboarding command is enabled only after the release gates pass.

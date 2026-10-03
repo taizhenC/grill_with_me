@@ -92,7 +92,7 @@ export default async function RoomPage({
         </li>
         <li>
           Open your AI editor there and run <code>/{GRILL_COMMAND}</code> — or
-          tell your agent: <em>read grill/MY-ROLE.md and follow it</em>.
+          tell your agent: <em>read .grill-with-me/MY-ROLE.md and follow it</em>.
         </li>
         <li>
           Answer its questions about your layer. When you say you&apos;re done
