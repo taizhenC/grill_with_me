@@ -56,11 +56,31 @@ jobs:
           node-version-file: .node-version
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - run: npm audit --audit-level=moderate
       - run: npm test
       - run: npm run typecheck
       - run: npm run build
       - run: npm run test:runtime
       - run: node scripts/verify-skill-traces.mjs
+
+  browser:
+    name: Browser onboarding (Node 24, Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx --no-install playwright install --with-deps --only-shell chromium
+      - run: npm run build
+      - run: npm run test:browser
 
   cli:
     name: CLI (Node ${{ matrix.node }}, ${{ matrix.os }})

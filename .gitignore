@@ -9,6 +9,8 @@ build/
 .env*.local
 
 coverage/
+test-results/
+playwright-report/
 *.log
 npm-debug.log*
 
