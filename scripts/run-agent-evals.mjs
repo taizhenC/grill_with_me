@@ -111,15 +111,20 @@ export function assistantText(agent, events) {
 
 // A workspace-write sandbox restricts writes, not reads. This detector catches
 // explicit account-home reads, but is not a complete shell/path security parser.
-export function homeReadFindings(agent, events) {
+export function homeReadFindings(agent, events, directory = null) {
   const variants = [homedir(), homedir().replaceAll("\\", "/"), homedir().replaceAll("\\", "\\\\"), "${HOME}"];
+  function omitFixture(value) {
+    if (directory) for (const spelling of [directory, directory.replaceAll("\\", "/"), directory.replaceAll("\\", "\\\\")])
+      value = value.split(spelling).join("${FIXTURE}");
+    return value;
+  }
   const findings = [];
   for (const event of events) {
     if (agent === "codex" && event.type === "item.completed" && event.item?.type === "command_execution") {
       const command = event.item.command ?? "";
       // The native shell executable may itself live under HOME. Only inspect
       // its command body, preserving that harmless runtime path as evidence.
-      const body = command.split(/-Command\s/i).slice(1).join("-Command ");
+      const body = omitFixture(command.split(/-Command\s/i).slice(1).join("-Command "));
       if (/Get-Content|\bcat\b|\btype\b/i.test(body) && variants.some(path => body.toLowerCase().includes(path.toLowerCase())))
         findings.push({ itemId: event.item.id, command, exitCode: event.item.exit_code,
           reason: "Explicit account-home content read; review actual output and intent." });
@@ -127,7 +132,7 @@ export function homeReadFindings(agent, events) {
     if (agent === "claude" && event.type === "assistant") for (const content of event.content) {
       if (content.type === "tool_use" && ["Read", "Grep", "Glob"].includes(content.name)) {
         const path = content.input?.file_path ?? content.input?.path;
-        if (typeof path === "string" && variants.some(home => path.toLowerCase().startsWith(home.toLowerCase())))
+        if (typeof path === "string" && variants.some(home => omitFixture(path).toLowerCase().startsWith(home.toLowerCase())))
           findings.push({ itemId: content.id, path, reason: "Explicit account-home file-tool access." });
       }
     }
@@ -135,8 +140,8 @@ export function homeReadFindings(agent, events) {
   return findings;
 }
 
-export function redactForeignOutputs(agent, events) {
-  const ids = new Set(homeReadFindings(agent, events).map(finding => finding.itemId));
+export function redactForeignOutputs(agent, events, directory = null) {
+  const ids = new Set(homeReadFindings(agent, events, directory).map(finding => finding.itemId));
   return events.map(event => {
     if (agent !== "codex" || !ids.has(event.item?.id) || !event.item.aggregated_output) return event;
     const output = event.item.aggregated_output;
@@ -240,7 +245,7 @@ async function run(config) {
       const raw = await invoke(executable, args, directory, prompt, Math.min(MAX_CALL_MS, Math.max(1, MAX_RUN_MS - (Date.now() - began))), phase === "write" ? artifactPath : null);
       const events = selectedEvents(config.agent, raw.stdout);
       const text = assistantText(config.agent, events);
-      reads.push(...homeReadFindings(config.agent, events));
+      reads.push(...homeReadFindings(config.agent, events, directory));
       if (phase === "write") {
         const write = events.filter(e => e.type === "assistant").flatMap(e => e.content)
           .find(c => c.type === "tool_use" && c.name === "Write" && c.input.file_path?.endsWith(`${fixture.role.slug}-spec.md`));
@@ -253,7 +258,7 @@ async function run(config) {
       }
       const result = { phase, startedAt: raw.startedAt, durationMs: raw.durationMs, exitCode: raw.exitCode,
         stopped: raw.stopped, invocation: { executable: config.agent === "claude" ? "claude" : "node ${CODEX_ENTRY}", args: args.map(a => a === entry ? "${CODEX_ENTRY}" : a), prompt },
-        events: redactForeignOutputs(config.agent, events), assistantText: text, stderr: raw.stderr };
+        events: redactForeignOutputs(config.agent, events, directory), assistantText: text, stderr: raw.stderr };
       await writeFile(join(recordDirectory, `${phase}.json`), redactEvidence(result, directory));
       results.push({ phase, exitCode: raw.exitCode, stopped: raw.stopped });
       if (raw.exitCode !== 0 || raw.stopped || events.some(e => e.isError || e.type === "turn.failed" || e.type === "error")) {

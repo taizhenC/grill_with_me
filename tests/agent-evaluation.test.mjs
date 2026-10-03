@@ -74,6 +74,10 @@ describe("agent evidence handling", () => {
     expect(redacted[0].item.aggregated_output).toBe("fixture");
     expect(redacted[1].item.originalOutputSha256).toMatch(/^[a-f0-9]{64}$/);
     expect(JSON.stringify(redacted)).not.toContain("private global text");
+    const fixture = join(homedir(), "AppData/Local/Temp/grill-owned-fixture");
+    const localRead = [{ type: "assistant", content: [{ type: "tool_use", id: "owned", name: "Read", input: { file_path: join(fixture, "README.md") } }] }];
+    expect(homeReadFindings("claude", localRead, fixture)).toEqual([]);
+    expect(homeReadFindings("claude", [{ type: "assistant", content: [{ type: "tool_use", id: "redacted", name: "Read", input: { file_path: "${FIXTURE}/README.md" } }] }])).toEqual([]);
   });
   it("redacts nested shell-escaped account and fixture paths", () => {
     const directory = join(tmpdir(), "grill-eval-test-owned");
