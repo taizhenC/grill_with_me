@@ -37,6 +37,7 @@ const ROOM_JSON = JSON.stringify({
 });
 
 const ROOM_KEY = "r_0123456789abcdef0123456789abcdef";
+const ROOM_TOKEN = "t".repeat(32);
 
 function parsed(): GrillRoom {
   const result = parseGrillRoom(ROOM_JSON);
@@ -85,7 +86,7 @@ beforeAll(async () => {
       published.push(await readBody(req));
       return send(201, {
         key: ROOM_KEY,
-        hostToken: "token-abc",
+        hostToken: ROOM_TOKEN,
         url: `/r/${ROOM_KEY}`,
         recovery: { expiresAt: new Date((Number(String(req.headers["idempotency-key"]).split(".")[1]) + 86400) * 1000).toISOString(), replayed: false },
       });
@@ -93,7 +94,7 @@ beforeAll(async () => {
     if (req.method === "POST" && url.pathname.endsWith("/republish")) {
       const token = (req.headers.authorization ?? "").replace("Bearer ", "");
       const body = await readBody(req);
-      if (token !== "token-abc") return send(403, { error: "bad host token" });
+      if (token !== ROOM_TOKEN) return send(403, { error: "bad host token" });
       republished.push({ token, body });
       return send(200, { key: ROOM_KEY, version: ++packVersion });
     }
@@ -549,7 +550,7 @@ describe("publish / republish", () => {
     expect(stdout).toContain("/host");
 
     const config = JSON.parse(await read(dir, ".grill-with-me.json"));
-    expect(config).toMatchObject({ roomKey: ROOM_KEY, hostToken: "token-abc", base });
+    expect(config).toMatchObject({ roomKey: ROOM_KEY, hostToken: ROOM_TOKEN, base });
     expect(await read(dir, ".gitignore")).toContain(".grill-with-me.json");
   });
 

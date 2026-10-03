@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { normalizeHostOrigin, readPublicationFile, savePublicationFile } from "./host-credentials.mjs";
 import { mintPublicationCapability, parsePublicationCapability, readPublicationCapability } from "./publication-capability.mjs";
+import { ROOM_KEY_PATTERN } from "./room-key.mjs";
 
 const hash = (body) => createHash("sha256").update(body).digest("hex");
 const MAX_BODY_BYTES = 256 * 1024;
@@ -43,6 +44,10 @@ export async function preparePublication(root, options) {
 }
 
 export function validatePublicationAcknowledgement(result, capability) {
+  if (typeof result.key !== "string" || !ROOM_KEY_PATTERN.test(result.key) ||
+      typeof result.hostToken !== "string" || !/^[A-Za-z0-9_-]{32}$/.test(result.hostToken)) {
+    throw new Error("service returned invalid publication credentials; keep the recovery file and check the service before retrying");
+  }
   // A valid committed response may arrive just after the window closes.
   const { expiresAt } = parsePublicationCapability(capability);
   if (result.recovery?.expiresAt !== new Date(expiresAt).toISOString() || typeof result.recovery?.replayed !== "boolean") {

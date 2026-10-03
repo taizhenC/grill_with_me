@@ -419,7 +419,6 @@ async function cmdPublish(args) {
   await prepareHostStorage(root);
 
   const result = await postJson(`${base}/api/rooms`, publication.body, { "idempotency-key": publication.capability });
-  if (!isRoomKey(result.key)) fail("server returned an invalid room key");
   validatePublicationAcknowledgement(result, publication.capability);
   try {
     await saveConfig(root, {
@@ -428,7 +427,7 @@ async function cmdPublish(args) {
       hostToken: result.hostToken,
     });
   } catch (err) {
-    fail("room creation may have succeeded, but host credentials could not be saved", err.message);
+    fail("room creation may have succeeded, but host credentials could not be saved", `${err.message}. Fix local storage, then run npx grill-with-me publish --recover`);
   }
   const roomUrl = `${base}/r/${result.key}`;
 

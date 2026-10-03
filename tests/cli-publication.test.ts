@@ -24,6 +24,7 @@ let beforeResponse: (() => Promise<void>) | null;
 let echoCapability: boolean;
 let invalidAcknowledgement: boolean;
 let createdKeys: Set<string>;
+let malformedToken: boolean;
 
 beforeAll(async () => {
   server = createServer(async (req, res) => {
@@ -40,6 +41,7 @@ beforeAll(async () => {
       if (dropResponse) { req.socket.destroy(); return; }
       if (beforeResponse) await beforeResponse();
       if (invalidAcknowledgement) result.recovery.expiresAt = "invalid";
+      if (malformedToken) result.hostToken = "x";
       res.writeHead(response.status, { "content-type": "application/json" }); res.end(JSON.stringify(result));
     } catch { res.writeHead(500); res.end('{}'); }
   });
@@ -48,7 +50,7 @@ beforeAll(async () => {
   base = `http://127.0.0.1:${address.port}`;
 });
 afterAll(async () => { await new Promise<void>((resolve) => server.close(() => resolve())); });
-beforeEach(() => { calls = 0; dropResponse = false; storedBeforeSend = false; beforeResponse = null; echoCapability = false; invalidAcknowledgement = false; createdKeys = new Set(); setStore(new MemoryStore()); resetRateLimit(); });
+beforeEach(() => { calls = 0; dropResponse = false; storedBeforeSend = false; beforeResponse = null; echoCapability = false; invalidAcknowledgement = false; malformedToken = false; createdKeys = new Set(); setStore(new MemoryStore()); resetRateLimit(); });
 async function checkout() {
   currentDirectory = await mkdtemp(join(tmpdir(), "grill-publication-"));
   await writeFile(join(currentDirectory, "grill-room.json"), body);
@@ -186,5 +188,13 @@ describe("CLI publication recovery", { timeout: 20_000 }, () => {
     expect(createdKeys.size).toBe(1);
     expect((await run(["publish", "--recover"], cwd)).code).toBe(0);
     expect(createdKeys.size).toBe(1);
+  });
+  it("rejects a short host token in a publication acknowledgement and preserves recovery", async () => {
+    const cwd = await checkout(); malformedToken = true;
+    const failed = await run(["publish", "--base", base], cwd);
+    expect(failed.code).not.toBe(0);
+    expect(await stat(join(cwd, ".grill-with-me.json")).then(() => true, () => false)).toBe(false);
+    malformedToken = false;
+    expect((await run(["publish", "--recover"], cwd)).code).toBe(0);
   });
 });
