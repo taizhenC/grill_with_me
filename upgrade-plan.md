@@ -6,7 +6,7 @@ The existing architecture fits the product: local agents conduct interviews, Git
 
 ## Implementation progress — 2026-10-02
 
-The first batch is merged into `main` in separate PRs. September dependency targets below describe the research snapshot; the security implementation uses the newer October-verified patches. Completion reports for finished features are in `doc/`.
+The safety and deterministic-spec work is merged into `main` in separate PRs. September dependency targets below describe the research snapshot; the security implementation uses the newer October-verified patches. Completion reports for finished features are in `doc/`.
 
 | Plan item | Pull request | Implemented scope |
 |---|---|---|
@@ -14,12 +14,23 @@ The first batch is merged into `main` in separate PRs. September dependency targ
 | P1-04 baseline | [#4](https://github.com/taizhenC/grill_with_me/pull/4) | Node 24 app CI, Node 22/24 Windows/Linux CLI checks, actual npm archive installation, and production skill tracing |
 | P0-01 | [#5](https://github.com/taizhenC/grill_with_me/pull/5) | Next 16.3.8, sharp 0.35.5, and Vitest/matching modules 4.1.11; unrelated dependencies retain their compatible locked versions |
 | P0-02 first slice | [#6](https://github.com/taizhenC/grill_with_me/pull/6) | Complete pack manifest validation, UTF-8 content bounds, linked destination rejection, whole-install preflight, and host dry-run |
+| P0-03 body limits | [#9](https://github.com/taizhenC/grill_with_me/pull/9), [#12](https://github.com/taizhenC/grill_with_me/pull/12) | Received-byte limits, bounded reads, strict UTF-8, and abort handling |
+| P0-03 capability links | [#10](https://github.com/taizhenC/grill_with_me/pull/10) | Strong random room keys, collision handling, access headers, and legacy expiry policy |
+| P0-02 credentials | [#11](https://github.com/taizhenC/grill_with_me/pull/11) | Origin/room-bound tokens, protected local storage, and secret-safe output |
+| P0-04 | [#13](https://github.com/taizhenC/grill_with_me/pull/13) | Explicit durable configuration, atomic claim/republish RPCs, and real PostgreSQL concurrency checks |
+| P0-05 preparation | [#14](https://github.com/taizhenC/grill_with_me/pull/14) | Beta metadata, legal/readme archive contents, and release runbook; publication remains open |
+| P0-02 transport | [#15](https://github.com/taizhenC/grill_with_me/pull/15) | Bounded response bytes/deadlines, cancellation, and uncertain mutation outcomes |
+| P0-02 refresh | [#16](https://github.com/taizhenC/grill_with_me/pull/16) | Installed hashes, local-edit preservation, atomic per-file replacement, and convergent retry |
+| P1-01 | [#17](https://github.com/taizhenC/grill_with_me/pull/17) | Shared exact spec parser, required role roster/context, and read-only merge preflight |
+| P0-03 shared quotas | [#18](https://github.com/taizhenC/grill_with_me/pull/18) | Shared database client/global budgets, trusted ingress, page protection, and compiled runtime regression checks |
 
 Pre-merge evidence: the [combined hosted CI run](https://github.com/taizhenC/grill_with_me/actions/runs/37076910493) passed all five jobs. Linux passed **151/151 tests**, typecheck, production build, and skill traces. CLI tests and installed-package checks passed with Node 22 and 24 on both Windows and Linux. Windows skips four Unix-specific file-symlink cases, all of which passed on Linux; its real junction/hardlink sentinel cases passed. A local real Next server smoke also passed host → publish → join → claim/status → republish → rejoin with pack v2. The final dependency branch's clean install and full audit passed, with zero reported vulnerabilities at verification time.
 
 PRs #3–#6 were merged before the new main validation, as requested. Post-merge [CI run 37077465585](https://github.com/taizhenC/grill_with_me/actions/runs/37077465585) passed all five jobs on exact `main` revision `eb737f461a7c2e27b016c08abea2848d129a72c1`. Local Node 24 tests, typecheck, build, traces, installed-package smoke, full audit, and the real-server host-to-rejoin flow also passed. All implementation and local merge commits use `taizhenC <tzhcheung@gmail.com>` as author and committer, have detailed bodies, and contain no co-author trailer. Each code PR has two focused feature commits.
 
-P0-02 remains partly open: origin/room-bound credentials, installed hashes/local-edit preservation, bounded HTTP reads/deadlines, and recoverable partial-write behavior follow in separate features. P1-04's real database/browser coverage and audit-policy gate also remain open. Room access/abuse controls, atomic production storage, deployment/publication, and live-agent/team validation have not yet been implemented.
+The next safety wave was merged before combined testing, as requested. Exact main `8419bcd17109c7ba1420a13b87612a35f261d2d1` passed **411 tests** locally on Node 24, with eight Windows platform skips; typecheck, build, installed beta archive, skill traces, compiled API/page quota/error checks, and audit also passed. See [the safety-wave completion record](doc/2026-10-02-safety-wave-completion.md) for evidence and limitations.
+
+Still open: actual npm/service publication and Supabase deployment verification; contract revisions/type consumption; member-local role layout, browser/ZIP recovery and publication idempotency; browser CI/audit policy; retention/privacy operations; and live-agent/team gates. P2/P3 remain deferred as originally ranked. Passing local or hosted checks does not establish the unexecuted deployment or pilot gates.
 
 ## Baseline and evidence
 

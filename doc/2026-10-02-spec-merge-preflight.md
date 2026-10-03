@@ -57,7 +57,9 @@ It reads the working checkout and does not prove specs were committed. A
 read-only CLI cannot prevent an agent from ignoring instructions; real agent
 and team evaluations remain P1-05. Contract revision/type consumption is P1-02.
 No public npm publication, deployment, or live agent evaluation occurred here.
-Hosted CI must pass before merge; this feature task has not merged its PR.
+The feature task opened its PR without merging it. The parent task subsequently
+merged it before final combined-main testing, following the owner's latest
+sequencing instruction; see the safety-wave completion record.
 
 Fence handling follows the relevant opening/closing rules in the
 [CommonMark specification](https://spec.commonmark.org/0.31.2/#fenced-code-blocks).
