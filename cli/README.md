@@ -39,6 +39,7 @@ specs are present. Members can then run check-contract or amend-contract.
 ```sh
 npx --no grill-with-me status <room-url>
 npx --no grill-with-me republish grill-room.json
+npx --no grill-with-me delete <room-url>
 ```
 
 Saved host credentials apply only to their original origin and room. Publishing
@@ -46,6 +47,13 @@ and republishing require HTTPS, except for loopback development. Publication cre
 Git ignore protection before saving `.grill-with-me.json`; already tracked
 credential files are rejected. Keep host tokens private. An explicit `--token`
 or `GRILL_WITH_ME_TOKEN` applies to the destination you request for that call.
+
+`delete` requires an explicit room key/URL (or `--key`) and its host token. It
+removes the shared database row before or after expiry, preserving local packs,
+specs and saved credentials. Saved tokens cannot authorize another origin/room;
+redirects and automatic retries are refused. Prefer `GRILL_WITH_ME_TOKEN` over
+secret command arguments. After a lost response, reconcile server state; expired
+reads also return 404 and cannot alone prove physical deletion.
 
 `join` and `host` validate downloaded paths and inspect all installation targets.
 They reject links, junctions, hardlinks, and unexpected pack files. Use `--dry-run`

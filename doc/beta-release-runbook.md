@@ -45,6 +45,12 @@ do not commit or paste secrets into reports. Keep `GRILL_STORE=supabase` in
 production. Memory mode is restricted to explicit development/test use. A
 secret-free build succeeds, but unconfigured production room APIs return 503.
 
+Configure `CRON_SECRET`, verify the actual daily cron and function limit, and set
+up operator monitoring/recovery using [the retention runbook](operations-retention-runbook.md).
+Publish the deployment's actual operator/provider/log/backup policy; see
+[privacy and retention](privacy-and-retention.md). A repository schedule alone
+does not prove deletion is running on the hosting account.
+
 Deploy the verified application artifact and verify skill tracing and the actual
 response privacy/cache headers. Record the resulting service origin. Use that
 origin explicitly in custom-service CLI commands. Confirm default onboarding
