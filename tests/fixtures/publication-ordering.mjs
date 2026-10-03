@@ -5,7 +5,9 @@ import { syncBuiltinESMExports } from "node:module";
 import { join } from "node:path";
 
 const { readFile, writeFile, rename, lstat } = fs.promises;
-const root = process.cwd();
+// The CLI canonicalizes cwd before storage operations. Windows hosted runners
+// can expose an 8.3 TEMP spelling, so the hooks must use that same real root.
+const root = await fs.promises.realpath(process.cwd());
 const role = process.env.GRILL_PUBLICATION_ORDERING_ROLE;
 if (role !== "A" && role !== "B") throw new Error("missing publication ordering fixture role");
 const recovery = join(root, ".grill-with-me-publish.json");

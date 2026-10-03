@@ -1,0 +1,9 @@
+# Canonical roots in the publication ordering fixture — 2026-10-02
+
+The main integration of the controlled publication regression passed locally and in hosted Linux, app, PostgreSQL and browser jobs. Hosted run [37088662568](https://github.com/taizhenC/grill_with_me/actions/runs/37088662568) nevertheless failed all three Windows CLI jobs: the intended safe-stop process exited successfully instead. The production publication guard was unchanged; the test preload compared CLI storage paths against the literal working-directory spelling.
+
+A local diagnostic launched the two actual CLI processes from a Windows 8.3 short-path checkout. With the literal-root hooks, the intended scheduling was bypassed and an HTTP request was sent. Using the same asynchronous `fs.promises.realpath(process.cwd())` call as the CLI made the hooks match: both specific safe errors appeared, zero requests were sent and a valid durable recovery record remained. A synchronous realpath substitution did not align these short-path spellings in that diagnostic, so the fixture uses the exact asynchronous API rather than assuming equivalent spellings.
+
+Only the test preload's root selection changes. It still gates real filesystem operations, keeps returned values/contents intact, has a ten-second fixture deadline, and requires the same durability, uniqueness and successful later recovery. No CLI, network or credential behavior changes. All 45 publication/pack/evaluation checks pass on Node 24.21; the controlled case and real short-path diagnostic also pass on Node 22.15. A new complete hosted main run verifies the correction after integration; failed attempts remain in the report history.
+
+This correction and its report are separate detailed commits under the owner's author/committer identity without co-author trailers, delivered through a separate feature PR and recorded in literal `doc/`.
