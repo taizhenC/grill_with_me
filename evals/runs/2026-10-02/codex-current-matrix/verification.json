@@ -1,0 +1,576 @@
+{
+  "reviewedAt": "2026-10-02 America/New_York",
+  "method": "Offline integrity/UTF-8/path/credential-pattern/source-hash/spec-gate/receipt-hash checks. Behavior and complete observed scope require manual grades.md; no model invocation.",
+  "sourceFilesChecked": 24,
+  "sourceMismatches": [],
+  "scan": {
+    "jsonParsed": 39,
+    "files": 53,
+    "invalidUtf8": [],
+    "replacementCharacter": [],
+    "privatePathMatches": [],
+    "credentialPatternMatches": [],
+    "redactionChanges": [],
+    "population": "53 original captured/preflight files, excluding this offline verification and manual grades"
+  },
+  "behavioralCalls": 14,
+  "completedCommands": 85,
+  "fileChangeEvents": 10,
+  "cases": [
+    {
+      "id": "member-frontend",
+      "structure": {
+        "ok": true,
+        "missing": [],
+        "thin": [],
+        "errors": []
+      },
+      "firstEqualsFinal": true,
+      "receipt": {
+        "receiptVersion": 2,
+        "kind": "member",
+        "role": "frontend",
+        "files": 6,
+        "hashMismatches": [],
+        "hashMethod": "Actual member-install canonical LF content; AGENTS fenced block only"
+      },
+      "writeScopeOk": true,
+      "modifications": [],
+      "added": [
+        "grill/frontend-spec.md"
+      ],
+      "phases": [
+        {
+          "phase": "interview",
+          "durationMs": 32376,
+          "exitCode": 0,
+          "stopped": null,
+          "completedCommands": 4,
+          "knownHomeReadFindings": [],
+          "gateResults": [],
+          "fileChanges": []
+        },
+        {
+          "phase": "write",
+          "durationMs": 57529,
+          "exitCode": 0,
+          "stopped": null,
+          "completedCommands": 7,
+          "knownHomeReadFindings": [],
+          "gateResults": [
+            {
+              "command": "\"${HOME}\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\native\\\\powershell\\\\pwsh.exe\" -Command 'node check-spec.mjs grill/frontend-spec.md'",
+              "exitCode": 0,
+              "result": {
+                "ok": true,
+                "missing": [],
+                "thin": [],
+                "errors": []
+              }
+            }
+          ],
+          "fileChanges": [
+            {
+              "path": "${FIXTURE}\\grill\\frontend-spec.md",
+              "kind": "add"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "member-backend",
+      "structure": {
+        "ok": true,
+        "missing": [],
+        "thin": [],
+        "errors": []
+      },
+      "firstEqualsFinal": true,
+      "receipt": {
+        "receiptVersion": 2,
+        "kind": "member",
+        "role": "backend",
+        "files": 6,
+        "hashMismatches": [],
+        "hashMethod": "Actual member-install canonical LF content; AGENTS fenced block only"
+      },
+      "writeScopeOk": true,
+      "modifications": [],
+      "added": [
+        "grill/backend-spec.md"
+      ],
+      "phases": [
+        {
+          "phase": "interview",
+          "durationMs": 33216,
+          "exitCode": 0,
+          "stopped": null,
+          "completedCommands": 4,
+          "knownHomeReadFindings": [],
+          "gateResults": [],
+          "fileChanges": []
+        },
+        {
+          "phase": "write",
+          "durationMs": 49843,
+          "exitCode": 0,
+          "stopped": null,
+          "completedCommands": 4,
+          "knownHomeReadFindings": [],
+          "gateResults": [
+            {
+              "command": "\"${HOME}\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\native\\\\powershell\\\\pwsh.exe\" -Command 'node check-spec.mjs grill/backend-spec.md'",
+              "exitCode": 0,
+              "result": {
+                "ok": true,
+                "missing": [],
+                "thin": [],
+                "errors": []
+              }
+            }
+          ],
+          "fileChanges": [
+            {
+              "path": "${FIXTURE}\\grill\\backend-spec.md",
+              "kind": "add"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "member-database",
+      "structure": {
+        "ok": true,
+        "missing": [],
+        "thin": [],
+        "errors": []
+      },
+      "firstEqualsFinal": true,
+      "receipt": {
+        "receiptVersion": 2,
+        "kind": "member",
+        "role": "database",
+        "files": 6,
+        "hashMismatches": [],
+        "hashMethod": "Actual member-install canonical LF content; AGENTS fenced block only"
+      },
+      "writeScopeOk": true,
+      "modifications": [],
+      "added": [
+        "grill/database-spec.md"
+      ],
+      "phases": [
+        {
+          "phase": "interview",
+          "durationMs": 31335,
+          "exitCode": 0,
+          "stopped": null,
+          "completedCommands": 4,
+          "knownHomeReadFindings": [],
+          "gateResults": [],
+          "fileChanges": []
+        },
+        {
+          "phase": "write",
+          "durationMs": 38920,
+          "exitCode": 0,
+          "stopped": null,
+          "completedCommands": 3,
+          "knownHomeReadFindings": [],
+          "gateResults": [
+            {
+              "command": "\"${HOME}\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\native\\\\powershell\\\\pwsh.exe\" -Command 'node check-spec.mjs grill/database-spec.md'",
+              "exitCode": 0,
+              "result": {
+                "ok": true,
+                "missing": [],
+                "thin": [],
+                "errors": []
+              }
+            }
+          ],
+          "fileChanges": [
+            {
+              "path": "${FIXTURE}\\grill\\database-spec.md",
+              "kind": "add"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "member-auth",
+      "structure": {
+        "ok": true,
+        "missing": [],
+        "thin": [],
+        "errors": []
+      },
+      "firstEqualsFinal": true,
+      "receipt": {
+        "receiptVersion": 2,
+        "kind": "member",
+        "role": "auth",
+        "files": 6,
+        "hashMismatches": [],
+        "hashMethod": "Actual member-install canonical LF content; AGENTS fenced block only"
+      },
+      "writeScopeOk": true,
+      "modifications": [],
+      "added": [
+        "grill/auth-spec.md"
+      ],
+      "phases": [
+        {
+          "phase": "interview",
+          "durationMs": 31254,
+          "exitCode": 0,
+          "stopped": null,
+          "completedCommands": 5,
+          "knownHomeReadFindings": [],
+          "gateResults": [],
+          "fileChanges": []
+        },
+        {
+          "phase": "write",
+          "durationMs": 44740,
+          "exitCode": 0,
+          "stopped": null,
+          "completedCommands": 4,
+          "knownHomeReadFindings": [],
+          "gateResults": [
+            {
+              "command": "\"${HOME}\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\native\\\\powershell\\\\pwsh.exe\" -Command 'node check-spec.mjs grill/auth-spec.md'",
+              "exitCode": 0,
+              "result": {
+                "ok": true,
+                "missing": [],
+                "thin": [],
+                "errors": []
+              }
+            }
+          ],
+          "fileChanges": [
+            {
+              "path": "${FIXTURE}\\grill\\auth-spec.md",
+              "kind": "add"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "member-qa",
+      "structure": {
+        "ok": true,
+        "missing": [],
+        "thin": [],
+        "errors": []
+      },
+      "firstEqualsFinal": true,
+      "receipt": {
+        "receiptVersion": 2,
+        "kind": "member",
+        "role": "qa",
+        "files": 6,
+        "hashMismatches": [],
+        "hashMethod": "Actual member-install canonical LF content; AGENTS fenced block only"
+      },
+      "writeScopeOk": true,
+      "modifications": [],
+      "added": [
+        "grill/qa-spec.md"
+      ],
+      "phases": [
+        {
+          "phase": "interview",
+          "durationMs": 18329,
+          "exitCode": 0,
+          "stopped": null,
+          "completedCommands": 4,
+          "knownHomeReadFindings": [],
+          "gateResults": [],
+          "fileChanges": []
+        },
+        {
+          "phase": "write",
+          "durationMs": 60889,
+          "exitCode": 0,
+          "stopped": null,
+          "completedCommands": 9,
+          "knownHomeReadFindings": [],
+          "gateResults": [
+            {
+              "command": "\"${HOME}\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\native\\\\powershell\\\\pwsh.exe\" -Command 'node check-spec.mjs grill/qa-spec.md'",
+              "exitCode": 0,
+              "result": {
+                "ok": true,
+                "missing": [],
+                "thin": [],
+                "errors": []
+              }
+            }
+          ],
+          "fileChanges": [
+            {
+              "path": "${FIXTURE}\\grill\\qa-spec.md",
+              "kind": "add"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "clean-baseline",
+      "structure": null,
+      "firstEqualsFinal": null,
+      "receipt": {
+        "receiptVersion": 2,
+        "kind": "member",
+        "role": "frontend",
+        "files": 6,
+        "hashMismatches": [],
+        "hashMethod": "Actual member-install canonical LF content; AGENTS fenced block only"
+      },
+      "writeScopeOk": true,
+      "modifications": [],
+      "added": [
+        "grill/CHECK-REPORT.md"
+      ],
+      "phases": [
+        {
+          "phase": "check",
+          "durationMs": 86244,
+          "exitCode": 0,
+          "stopped": null,
+          "completedCommands": 7,
+          "knownHomeReadFindings": [],
+          "gateResults": [
+            {
+              "command": "\"${HOME}\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\native\\\\powershell\\\\pwsh.exe\" -Command 'node .eval-cli/grill.mjs contract-status'",
+              "exitCode": 0,
+              "result": {
+                "ok": true,
+                "freshness": "fresh",
+                "revision": "b033c0aad022a528296ccf76fab39b978516b7bdb248fd9c7577ad2515d83c6e",
+                "pending": []
+              }
+            }
+          ],
+          "fileChanges": [
+            {
+              "path": "${FIXTURE}\\grill\\CHECK-REPORT.md",
+              "kind": "add"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "clean-amendment",
+      "structure": null,
+      "firstEqualsFinal": null,
+      "receipt": {
+        "receiptVersion": 2,
+        "kind": "member",
+        "role": "frontend",
+        "files": 6,
+        "hashMismatches": [],
+        "hashMethod": "Actual member-install canonical LF content; AGENTS fenced block only"
+      },
+      "writeScopeOk": true,
+      "modifications": [],
+      "added": [
+        "grill/CHECK-REPORT.md"
+      ],
+      "phases": [
+        {
+          "phase": "check",
+          "durationMs": 66861,
+          "exitCode": 0,
+          "stopped": null,
+          "completedCommands": 14,
+          "knownHomeReadFindings": [],
+          "gateResults": [
+            {
+              "command": "\"${HOME}\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\native\\\\powershell\\\\pwsh.exe\" -Command 'node .eval-cli/grill.mjs contract-status'",
+              "exitCode": 0,
+              "result": {
+                "ok": true,
+                "freshness": "fresh",
+                "revision": "2322416109177933a597802db958bb32ea7571579d3946297f1debe4734fd8a6",
+                "pending": []
+              }
+            }
+          ],
+          "fileChanges": [
+            {
+              "path": "${FIXTURE}\\grill\\CHECK-REPORT.md",
+              "kind": "add"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "clean-no-local-role",
+      "structure": null,
+      "firstEqualsFinal": null,
+      "receipt": "intentionally absent",
+      "writeScopeOk": true,
+      "modifications": [],
+      "added": [
+        "grill/CHECK-REPORT.md"
+      ],
+      "phases": [
+        {
+          "phase": "check",
+          "durationMs": 84515,
+          "exitCode": 0,
+          "stopped": null,
+          "completedCommands": 11,
+          "knownHomeReadFindings": [],
+          "gateResults": [
+            {
+              "command": "\"${HOME}\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\native\\\\powershell\\\\pwsh.exe\" -Command 'node .eval-cli/grill.mjs contract-status'",
+              "exitCode": 0,
+              "result": {
+                "ok": true,
+                "freshness": "fresh",
+                "revision": "2322416109177933a597802db958bb32ea7571579d3946297f1debe4734fd8a6",
+                "pending": []
+              }
+            },
+            {
+              "command": "\"${HOME}\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\native\\\\powershell\\\\pwsh.exe\" -Command 'node check-spec.mjs grill/backend-spec.md'",
+              "exitCode": 0,
+              "result": {
+                "ok": true,
+                "missing": [],
+                "thin": [
+                  "## Scope"
+                ],
+                "errors": []
+              }
+            },
+            {
+              "command": "\"${HOME}\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\native\\\\powershell\\\\pwsh.exe\" -Command 'node check-spec.mjs grill/frontend-spec.md'",
+              "exitCode": 0,
+              "result": {
+                "ok": true,
+                "missing": [],
+                "thin": [],
+                "errors": []
+              }
+            },
+            {
+              "command": "\"${HOME}\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\native\\\\powershell\\\\pwsh.exe\" -Command 'node check-spec.mjs grill/database-spec.md'",
+              "exitCode": 0,
+              "result": {
+                "ok": true,
+                "missing": [],
+                "thin": [],
+                "errors": []
+              }
+            },
+            {
+              "command": "\"${HOME}\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\native\\\\powershell\\\\pwsh.exe\" -Command 'node check-spec.mjs grill/qa-spec.md'",
+              "exitCode": 0,
+              "result": {
+                "ok": true,
+                "missing": [],
+                "thin": [],
+                "errors": []
+              }
+            },
+            {
+              "command": "\"${HOME}\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\native\\\\powershell\\\\pwsh.exe\" -Command 'node check-spec.mjs grill/auth-spec.md'",
+              "exitCode": 0,
+              "result": {
+                "ok": true,
+                "missing": [],
+                "thin": [
+                  "## What I own"
+                ],
+                "errors": []
+              }
+            }
+          ],
+          "fileChanges": [
+            {
+              "path": "${FIXTURE}\\grill\\CHECK-REPORT.md",
+              "kind": "add"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "seeded-drift",
+      "structure": null,
+      "firstEqualsFinal": null,
+      "receipt": {
+        "receiptVersion": 2,
+        "kind": "member",
+        "role": "frontend",
+        "files": 6,
+        "hashMismatches": [],
+        "hashMethod": "Actual member-install canonical LF content; AGENTS fenced block only"
+      },
+      "writeScopeOk": true,
+      "modifications": [],
+      "added": [
+        "grill/CHECK-REPORT.md"
+      ],
+      "phases": [
+        {
+          "phase": "check",
+          "durationMs": 91642,
+          "exitCode": 0,
+          "stopped": null,
+          "completedCommands": 5,
+          "knownHomeReadFindings": [],
+          "gateResults": [
+            {
+              "command": "\"${HOME}\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\native\\\\powershell\\\\pwsh.exe\" -Command 'node .eval-cli/grill.mjs contract-status'",
+              "exitCode": 0,
+              "result": {
+                "ok": true,
+                "freshness": "fresh",
+                "revision": "af606180d0a5520ec298be188d54a7111b98a25fcba3c046ccd6e7050b220ff1",
+                "pending": []
+              }
+            }
+          ],
+          "fileChanges": [
+            {
+              "path": "${FIXTURE}\\grill\\CHECK-REPORT.md",
+              "kind": "add"
+            },
+            {
+              "path": "${FIXTURE}\\grill\\CHECK-REPORT.md",
+              "kind": "update"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "manualReview": {
+    "reviewers": [
+      "/root/store_correctness",
+      "/root/review_ci",
+      "/root"
+    ],
+    "memberContentPass": 4,
+    "memberStructurePass": 5,
+    "memberRealGatePass": 5,
+    "memberObservedReadScopePass": 5,
+    "memberWriteScopePass": 5,
+    "cleanGate": "open: unsupported Frontend finding plus shared fixture query projection imprecision",
+    "seedCategoriesPass": 4,
+    "totalSeedCategories": 5
+  }
+}

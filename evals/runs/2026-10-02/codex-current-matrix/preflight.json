@@ -1,0 +1,16 @@
+{
+  "dateLocal": "2026-10-02",
+  "timezone": "America/New_York",
+  "sourceMain": "28eee28ae589b8e7ea4d2e2e47ee33e03ca2ac26",
+  "node": "v24.21.0",
+  "cli": "codex-cli 0.144.4",
+  "authenticated": true,
+  "fixturesInitializedBeforeAgentTasks": [
+    "member-frontend", "member-backend", "member-database", "member-auth", "member-qa",
+    "clean-baseline", "clean-amendment", "clean-no-local-role", "seeded-drift"
+  ],
+  "canonicalDriftSetup": "All four drift fixtures report ok:true, freshness:fresh, pending:[] through the actual copied CLI.",
+  "receiptQualification": "Five members, clean-baseline, clean-amendment and seeded-drift use actual full V2 installation. clean-no-local-role intentionally has no local receipt and tests neutral absence against a valid obsolete shared selector.",
+  "runPolicy": "One new current nine-case population; 14 behavioral calls maximum, 30 minutes per run, 120 seconds and 2 MiB per call. No model override, prompt/source change, automatic retry or higher limit.",
+  "previousEvidence": "Original and corrected populations remain untouched and are not substituted into this current population."
+}
