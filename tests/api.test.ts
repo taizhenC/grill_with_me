@@ -180,10 +180,10 @@ describe("GET /api/room/[key]", () => {
     const body = await res.json();
     const paths = body.files.map((f: { path: string }) => f.path);
     expect(paths).toContain("AGENTS.md");
-    expect(paths).toContain("grill/MY-ROLE.md");
+    expect(paths).toContain(".grill-with-me/MY-ROLE.md");
     expect(paths).toContain(".claude/skills/check-contract/SKILL.md");
     const myRole = body.files.find(
-      (f: { path: string }) => f.path === "grill/MY-ROLE.md",
+      (f: { path: string }) => f.path === ".grill-with-me/MY-ROLE.md",
     );
     expect(myRole.content).toContain("# Your role: Backend");
   });
@@ -286,7 +286,7 @@ describe("POST /api/room/[key]/republish", () => {
       )
     ).json();
     const stamp = pack.files.find(
-      (f: { path: string }) => f.path === "grill/.room",
+      (f: { path: string }) => f.path === ".grill-with-me/member.json",
     );
     expect(JSON.parse(stamp.content).packVersion).toBe(2);
   });

@@ -9,12 +9,14 @@ by role, never presented as a bare file list.
 
 ## Step 0 — staleness and amendments
 
-- Read `grill/.room` if present. If the pack version there is older than the
+- Read `.grill-with-me/member.json` if present. If the pack version there is older than the
   version named in the newest entry of `grill/CONTRACT-CHANGES.md`, warn
   that this checkout may hold a stale pack.
-- `.room` also names the role this checkout joined as. Put that role's
+- This local receipt also names the role this checkout joined as. Put that role's
   findings first in the report: they are the only ones the person running
   you can fix without going to find someone.
+- If local state is absent, do not infer a current role from legacy shared
+  `grill/.room`, `grill/MY-ROLE.md`, or a teammate's spec. Report all roles evenly.
 - Read `grill/CONTRACT-CHANGES.md` if it exists. **Amendments override
   CONTRACT.md.** Where they conflict, the amendment is the agreement, and
   code matching the amendment is NOT drift.

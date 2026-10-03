@@ -149,12 +149,12 @@ async function repo(): Promise<string> {
   return mkdtemp(join(tmpdir(), "grill-cli-"));
 }
 
-async function run(args: string[], cwd: string) {
+async function run(args: string[], cwd: string, env: Partial<NodeJS.ProcessEnv> = {}) {
   try {
     const { stdout, stderr } = await execFileAsync(
       process.execPath,
       [CLI, ...args],
-      { cwd, env: { ...process.env, NO_COLOR: "1" } },
+      { cwd, env: { ...process.env, NO_COLOR: "1", ...env } },
     );
     return { code: 0, stdout, stderr };
   } catch (err) {
@@ -170,7 +170,7 @@ describe("room capability parsing", () => {
     const dir = await repo();
     const result = await run(["join", `${base}/r/pearl-summit-88`, "--role", "backend", "--no-claim"], dir);
     expect(result.code).toBe(0);
-    expect(JSON.parse(await read(dir, "grill/.room")).roomKey).toBe("pearl-summit-88");
+    expect(JSON.parse(await read(dir, ".grill-with-me/member.json")).roomKey).toBe("pearl-summit-88");
   });
 
   it.each(["invalid-key", "r_too-short", "pearl-summit-88/host", "r_0123456789abcdef0123456789abcdeG"])("rejects malformed references before network access: %s", async (key) => {
@@ -285,7 +285,7 @@ describe("pack filesystem safety", () => {
     expect(result.code).toBe(1);
     expect(result.stderr).toContain("hard-linked");
     expect(await read(outside, "sentinel.md")).toBe("outside sentinel\n");
-    await expect(read(dir, command === "join" ? "grill/.room" : ".claude/skills/grill-host/SKILL.md")).rejects.toThrow();
+    await expect(read(dir, command === "join" ? ".grill-with-me/member.json" : ".claude/skills/grill-host/SKILL.md")).rejects.toThrow();
   });
 
   it.each(["directory leaf", "file ancestor"])("rejects a late %s before updating AGENTS.md", async (problem) => {
@@ -303,7 +303,7 @@ describe("pack filesystem safety", () => {
     expect(result.code).toBe(1);
     expect(result.stderr).toContain("unsafe pack target");
     expect(await read(dir, "AGENTS.md")).toBe("house rules\n");
-    await expect(read(dir, "grill/.room")).rejects.toThrow();
+    await expect(read(dir, ".grill-with-me/member.json")).rejects.toThrow();
     expect(await readdir(join(dir, ".claude/skills"))).toEqual(["amend-contract"]);
   });
 
@@ -321,7 +321,7 @@ describe("pack filesystem safety", () => {
     expect(await readdir(outside)).toEqual([".room"]);
   });
 
-  it.skipIf(process.platform === "win32").each(["AGENTS.md", "grill/.room", ".claude/skills/amend-contract/SKILL.md"])(
+  it.skipIf(process.platform === "win32").each(["AGENTS.md", ".grill-with-me/member.json", ".claude/skills/amend-contract/SKILL.md"])(
     "rejects a file symlink at %s without touching its target",
     async (path) => {
       const dir = await repo();
@@ -361,7 +361,7 @@ describe("pack filesystem safety", () => {
     const result = await run(["join", ROOM_KEY, "--role", "backend", "--base", base], alias);
 
     expect(result.code).toBe(0);
-    expect(await read(dir, "grill/MY-ROLE.md")).toContain("# Your role: Backend");
+    expect(await read(dir, ".grill-with-me/MY-ROLE.md")).toContain("# Your role: Backend");
   });
 });
 
@@ -388,7 +388,7 @@ describe("join", () => {
     expect(result.stderr).toContain("pack");
     expect(await read(dir, "AGENTS.md")).toBe("house rules\n");
     expect(await read(dir, "package.json")).toBe("keep this\n");
-    await expect(read(dir, "grill/.room")).rejects.toThrow();
+    await expect(read(dir, ".grill-with-me/member.json")).rejects.toThrow();
     expect(claims).toEqual({});
   });
 
@@ -400,14 +400,14 @@ describe("join", () => {
     );
 
     expect(code).toBe(0);
-    expect(await read(dir, "grill/MY-ROLE.md")).toContain("# Your role: Backend");
-    expect(JSON.parse(await read(dir, "grill/.room"))).toMatchObject({
+    expect(await read(dir, ".grill-with-me/MY-ROLE.md")).toContain("# Your role: Backend");
+    expect(JSON.parse(await read(dir, ".grill-with-me/member.json"))).toMatchObject({
       roomKey: ROOM_KEY,
       role: "backend",
       packVersion: 1,
     });
     expect(await read(dir, ".claude/commands/grill-my-role.md")).toContain(
-      "grill/MY-ROLE.md",
+      ".grill-with-me/MY-ROLE.md",
     );
     expect(claims).toEqual({ backend: "Alice" });
     expect(stdout).toContain("/grill-my-role");
@@ -421,7 +421,7 @@ describe("join", () => {
       dir,
     );
     expect(code).toBe(0);
-    expect(await read(dir, "grill/MY-ROLE.md")).toContain("# Your role: Frontend");
+    expect(await read(dir, ".grill-with-me/MY-ROLE.md")).toContain("# Your role: Frontend");
   });
 
   it("re-joining the same room updates in place, no --force needed", async () => {
@@ -434,7 +434,7 @@ describe("join", () => {
     expect(code).toBe(0);
     // Role comes from the stamp — no picker, no flag.
     expect(stdout).toContain("Backend");
-    expect(JSON.parse(await read(dir, "grill/.room")).packVersion).toBe(2);
+    expect(JSON.parse(await read(dir, ".grill-with-me/member.json")).packVersion).toBe(2);
     expect(stdout).toContain("updated");
   });
 
@@ -486,8 +486,8 @@ describe("join", () => {
     );
     expect(code).toBe(0);
     expect(stdout).toContain("created");
-    expect(stdout).toContain("grill/MY-ROLE.md");
-    await expect(read(dir, "grill/MY-ROLE.md")).rejects.toThrow();
+    expect(stdout).toContain(".grill-with-me/MY-ROLE.md");
+    await expect(read(dir, ".grill-with-me/MY-ROLE.md")).rejects.toThrow();
   });
 
   it("names the roles when it cannot prompt for one", async () => {
@@ -520,6 +520,22 @@ describe("join", () => {
 });
 
 describe("publish / republish", () => {
+  it("prints copyable custom-origin guidance even when the service came from the environment", async () => {
+    const dir = await repo();
+    const env = { GRILL_WITH_ME_URL: base };
+    const host = await run(["host"], dir, env);
+    expect(host.code).toBe(0);
+    expect(host.stdout).toContain(`npx grill-with-me publish grill-room.json --base ${base}`);
+    await writeFile(join(dir, "grill-room.json"), ROOM_JSON);
+    const published = await run(["publish", "grill-room.json"], dir, env);
+    expect(published.code).toBe(0);
+    expect(published.stdout).toContain(`npx grill-with-me join ${ROOM_KEY} --base ${base}`);
+    expect(published.stdout).toContain(`npx grill-with-me republish grill-room.json --base ${base}`);
+    const republished = await run(["republish", "grill-room.json", "--base", base], dir);
+    expect(republished.code).toBe(0);
+    expect(republished.stdout).toContain(`npx grill-with-me join ${ROOM_KEY} --base ${base}`);
+  });
+
   it("publishes, saves the host token, and gitignores it", async () => {
     const dir = await repo();
     await writeFile(join(dir, ".gitignore"), "node_modules/\n", "utf8");

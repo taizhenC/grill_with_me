@@ -38,8 +38,8 @@ import {
   readHostConfig as readConfig, prepareHostStorage, saveHostConfig as saveConfig,
 } from "./host-credentials.mjs";
 
-const DEFAULT_BASE =
-  process.env.GRILL_WITH_ME_URL ?? "https://grill-with-me.vercel.app";
+const CANONICAL_BASE = "https://grill-with-me.vercel.app";
+const DEFAULT_BASE = process.env.GRILL_WITH_ME_URL ?? CANONICAL_BASE;
 
 const GRILL_COMMAND = "grill-my-role";
 
@@ -48,10 +48,9 @@ const GRILL_COMMAND = "grill-my-role";
  * `--base` is noise; anywhere else — a fork, a dev server — leaving it off
  * sends the whole team to the wrong app. Mirrors lib/commands.ts.
  */
+const baseFlag = (base) => base === CANONICAL_BASE ? "" : ` --base ${base}`;
 const joinLine = (key, base, role) =>
-  `npx grill-with-me join ${key}${role ? ` --role ${role}` : ""}${
-    base === DEFAULT_BASE ? "" : ` --base ${base}`
-  }`;
+  `npx grill-with-me join ${key}${role ? ` --role ${role}` : ""}${baseFlag(base)}`;
 
 /* ------------------------------------------------------------------ */
 /* output                                                              */
@@ -245,7 +244,7 @@ async function cmdJoin(args) {
   const summary = await getJson(`${base}/api/room/${ref.key}`);
   if (summary.key !== ref.key) fail("invalid room summary: requested room does not match");
   const stamp = await readInstallReceipt(root, "member");
-  const sameRoom = receiptMatches(stamp, base, ref.key);
+  const sameRoom = receiptMatches(stamp, base, ref.key) && !stamp.migrating;
 
   let roleSlug = args.role ?? (sameRoom ? stamp.role : null);
   if (roleSlug && !summary.roles.some((r) => r.slug === roleSlug)) {
@@ -319,12 +318,15 @@ async function cmdJoin(args) {
     console.log(`  ${dim(file.status.padEnd(9))} ${file.path}`);
   }
   if (changed.length === 0) console.log(dim("  everything was already up to date"));
+  if (stamp?.migrating) {
+    console.log(dim("\n  Legacy grill/.room and grill/MY-ROLE.md are preserved but inactive. Your role now lives in .grill-with-me/."));
+  }
 
   console.log(`
 ${bold("Next — about ten minutes:")}
 
   1. Open your AI editor in this folder.
-  2. Run ${bold(`/${GRILL_COMMAND}`)}  ${dim(`— or say: "read grill/MY-ROLE.md and follow it"`)}
+  2. Run ${bold(`/${GRILL_COMMAND}`)}  ${dim(`— or say: "read .grill-with-me/MY-ROLE.md and follow it"`)}
   3. Answer its questions. When you say you're done it writes
      ${bold(`grill/${roleSlug}-spec.md`)}.
   4. Not sure it came out right? ${dim("npx grill-with-me check-spec")}
@@ -371,7 +373,7 @@ ${bold("Next:")}
      It grills you about the project, proposes roles, and writes
      ${bold("grill-room.json")}.
   2. Publish it and share the link:
-     ${dim("npx grill-with-me publish grill-room.json")}
+     ${dim(`npx grill-with-me publish grill-room.json${baseFlag(base)}`)}
   3. Once every teammate has committed their spec, say:
      ${bold("run the merge-contract skill")} — the contract lands in the repo.
 `);
@@ -430,7 +432,7 @@ ${bold("Yours:")}
   credentials ${dim(`saved to ${CONFIG_FILE} (gitignored; token hidden)`)}
 
 ${bold("Next:")} once every spec is committed, run the ${bold("merge-contract")} skill.
-${dim("Changed the plan? npx grill-with-me republish grill-room.json")}
+${dim(`Changed the plan? npx grill-with-me republish grill-room.json${baseFlag(base)}`)}
 `);
 }
 

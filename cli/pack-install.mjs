@@ -3,10 +3,12 @@ import { lstat, mkdir, open, rename, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { isRoomKey } from "./room-key.mjs";
 import { packPaths, preflightTargets, readPackFile } from "./pack-files.mjs";
+import { MEMBER_RECEIPT, MEMBER_ROLE, assertMemberLocalStorage, memberIgnoreContent } from "./member-storage.mjs";
 
 const START = "<!-- grill-with-me:start -->";
 const END = "<!-- grill-with-me:end -->";
-const RECEIPTS = { member: "grill/.room", host: ".grill-with-me-host.json" };
+const RECEIPTS = { member: MEMBER_RECEIPT, host: ".grill-with-me-host.json" };
+const canonicalText = (content) => content.replaceAll("\r\n", "\n");
 const digest = (content) => createHash("sha256").update(content, "utf8").digest("hex");
 const object = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const roleSlug = (value) => typeof value === "string" && value.length <= 40 && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(value);
@@ -37,24 +39,31 @@ function exactKeys(value, keys) {
 
 /** Old stamps identify a room, but cannot prove local ownership or an origin. */
 export async function readInstallReceipt(root, kind) {
-  const path = RECEIPTS[kind];
+  if (kind === "member") await assertMemberLocalStorage(root);
+  let path = RECEIPTS[kind];
   await preflightTargets(root, [path]);
-  const raw = await readPackFile(join(root, path));
+  let raw = await readPackFile(join(root, path));
+  const migrating = raw === null && kind === "member";
+  if (migrating) {
+    path = "grill/.room";
+    await preflightTargets(root, [path]);
+    raw = await readPackFile(join(root, path));
+  }
   if (raw === null) return null;
   const value = parseJson(raw, `${path} install receipt`);
-  if (kind === "member" && exactKeys(value, ["roomKey", "role", "packVersion"]) && memberIdentity(value)) {
-    return { legacy: true };
+  if (migrating && exactKeys(value, ["roomKey", "role", "packVersion"]) && memberIdentity(value)) {
+    return { legacy: true, migrating: true };
   }
   const keys = ["receiptVersion", "kind", "origin", "files", ...(kind === "member" ? ["roomKey", "role", "packVersion"] : [])];
   let validOrigin = false;
   try { validOrigin = typeof value?.origin === "string" && normalizePackOrigin(value.origin) === value.origin; } catch { /* invalid */ }
-  const paths = payloadPaths(kind);
-  if (!exactKeys(value, keys) || value.receiptVersion !== 1 || value.kind !== kind || !validOrigin ||
+  const paths = payloadPaths(kind).map((path) => migrating && path === MEMBER_ROLE ? "grill/MY-ROLE.md" : path);
+  if (!exactKeys(value, keys) || value.receiptVersion !== (kind === "member" && !migrating ? 2 : 1) || value.kind !== kind || !validOrigin ||
       (kind === "member" && !memberIdentity(value)) || !exactKeys(value.files, paths) ||
       !paths.every((path) => typeof value.files[path] === "string" && /^[a-f0-9]{64}$/.test(value.files[path]))) {
     throw new Error(`invalid ${path} install receipt; inspect or move it aside before retrying`);
   }
-  return value;
+  return migrating ? { ...value, migrating: true } : value;
 }
 
 export const receiptMatches = (receipt, origin, roomKey) =>
@@ -103,6 +112,7 @@ export async function planInstall(root, files, identity, previous, force = false
   await preflightTargets(root, [...paths, ...paths.map(temporaryPath)]);
   for (const path of paths) await requireMissingTemporary(root, path);
   const owned = receiptMatches(previous, origin, roomKey) ? previous.files : {};
+  const hash = kind === "member" ? (content) => digest(canonicalText(content)) : digest;
   const hashes = {};
   const plan = [];
   for (const path of payloadPaths(kind)) {
@@ -119,25 +129,27 @@ export async function planInstall(root, files, identity, previous, force = false
       if (old) content = current.slice(0, old.start) + incoming.content + current.slice(old.end);
       else if (current !== null) content = current + (current.endsWith("\n\n") ? "" : current.endsWith("\n") ? "\n" : "\n\n") + file.content;
     }
-    hashes[path] = digest(incomingOwnedContent);
+    hashes[path] = hash(incomingOwnedContent);
     // Matching incoming content is safe to adopt, including files that were
     // replaced before a previous attempt failed to commit its receipt.
-    const unchanged = current === content;
-    const verified = oldOwnedContent !== null && digest(oldOwnedContent) === owned[path];
+    const unchanged = current !== null && (kind === "member" ? canonicalText(current) === canonicalText(content) : current === content);
+    const verified = oldOwnedContent !== null && (hash(oldOwnedContent) === owned[path] ||
+      (previous?.migrating && digest(oldOwnedContent) === owned[path]));
     const fresh = oldOwnedContent === null && !owned[path];
     const allowed = unchanged || verified || fresh || force;
     plan.push({ path, content, status: !allowed ? "blocked" : unchanged ? "unchanged" : current === null ? "created" : "updated" });
   }
 
-  // Ignore local state even in a plain folder, without requiring Git to exist.
-  // Already tracked files and lower-level ignore overrides need user migration.
+  // Ignore the whole local member directory, so nested Git negations cannot
+  // expose individual selectors. Host receipt policy remains separate.
   const currentIgnore = await readPackFile(join(root, ".gitignore"));
   let ignore = currentIgnore ?? "";
-  for (const pattern of [`/${receiptPath}`, "*.grill-tmp"]) {
+  if (kind === "member") ignore = memberIgnoreContent(ignore);
+  else for (const pattern of [`/${receiptPath}`, "*.grill-tmp"]) {
     if (!ignore.split(/\r?\n/).includes(pattern)) ignore += `${ignore && !ignore.endsWith("\n") ? "\n" : ""}${pattern}\n`;
   }
   plan.unshift({ path: ".gitignore", content: ignore, status: currentIgnore === ignore ? "unchanged" : currentIgnore === null ? "created" : "updated" });
-  const receipt = { receiptVersion: 1, ...identity, files: hashes };
+  const receipt = { receiptVersion: kind === "member" ? 2 : 1, ...identity, files: hashes };
   const content = `${JSON.stringify(receipt, null, 2)}\n`;
   const current = await readPackFile(join(root, receiptPath));
   // This is the commit point: never put the receipt before the payload files.
@@ -178,7 +190,10 @@ export async function executeInstall(root, plan) {
   if (plan.some((file) => file.status === "blocked")) {
     throw new Error(`pack files have local edits or unverified ownership:\n  ${plan.filter((file) => file.status === "blocked").map((file) => file.path).join("\n  ")}\nInspect or back up these files; --force replaces pack content. Specs and CONTRACT files are never touched.`);
   }
+  const member = plan.some((file) => file.path === MEMBER_RECEIPT);
+  if (member) await assertMemberLocalStorage(root);
   for (const file of plan) {
     if (file.status !== "unchanged") await atomicWrite(root, file);
+    if (member && file.path === ".gitignore") await assertMemberLocalStorage(root, true);
   }
 }
