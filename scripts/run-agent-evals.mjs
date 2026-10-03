@@ -233,6 +233,7 @@ async function run(config) {
         : [entry, "exec", "--sandbox", "workspace-write", "--ignore-user-config", "--ignore-rules", "--ephemeral",
           "--skip-git-repo-check", "--json", "--color", "never", "--cd", directory,
           "-c", 'approval_policy="never"', "-c", 'windows.sandbox="unelevated"',
+          "-c", `skills.config=[{path=${JSON.stringify(join(homedir(), ".agents/skills/grilling/SKILL.md").replaceAll("\\", "/"))},enabled=false}]`,
           "-c", 'web_search="disabled"', "-c", "sandbox_workspace_write.network_access=false", "-"];
       console.log(`${config.agent}: ${fixture.id}/${phase} (${++calls}/${MAX_CALLS})`);
       const artifactPath = fixture.kind === "member" ? join(directory, `grill/${fixture.role.slug}-spec.md`) : null;
@@ -270,17 +271,17 @@ async function run(config) {
     const content = final[target] ?? null;
     if (content !== null) await writeFile(join(recordDirectory, "artifact.md"), content);
     const validation = fixture.kind === "member" && content !== null ? validateSpec(content) : null;
-    await writeFile(join(recordDirectory, "outcome.json"), JSON.stringify({ results, modifications, added, target,
+    await writeFile(join(recordDirectory, "outcome.json"), redactEvidence({ results, modifications, added, target,
       artifactExists: content !== null, structure: validation,
       writeScopeOk: modifications.length === 0 && added.every(path => path === target),
       readScope: { knownHomeReadFindings: reads, fullyConfined: false, review: "Manual trace review required; write scope does not prove read confinement." },
-      manualGrade: "Pending; structure validity is not a behavior grade." }, null, 2) + "\n");
+      manualGrade: "Pending; structure validity is not a behavior grade." }, directory));
     manifest.cases.push({ id: fixture.id, artifactExists: content !== null, structureOk: validation?.ok ?? null, results });
     await writeFile(join(out, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
     if (manifest.stopped) break;
   }
   manifest.finishedAt = new Date().toISOString();
-  await writeFile(join(out, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+  await writeFile(join(out, "manifest.json"), redactEvidence(manifest, working));
   console.log(`${config.agent}: saved ${manifest.cases.length} cases; stopped=${manifest.stopped ?? "no"}`);
   if (manifest.stopped) process.exitCode = 1;
 }
