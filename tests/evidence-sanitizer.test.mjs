@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtemp, mkdir, copyFile, writeFile, readFile, symlink, link, rmdir, rm, realpath, lstat } from "node:fs/promises";
+import { mkdtemp, mkdir, copyFile, writeFile, readFile, symlink, link, rmdir, rm, realpath, lstat, rename, open } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join, resolve, dirname, basename, parse } from "node:path";
 import { tmpdir, homedir } from "node:os";
 import { pathToFileURL } from "node:url";
 import { repository } from "../evals/fixtures.mjs";
+import { prepareEvidenceRoot, assertFileIdentity } from "../scripts/evaluation-evidence-paths.mjs";
 
 const execute = promisify(execFile), cleanup = [];
 async function temporary(base = tmpdir()) {
@@ -30,7 +31,7 @@ async function fixture() {
   await writeFile(join(repo, "evals/fixtures.mjs"), `export const repository = ${JSON.stringify(repo)};`);
   await writeFile(join(repo, "scripts/run-agent-evals.mjs"), `export { redactEvidence, redactForeignOutputs, homeReadFindings } from ${JSON.stringify(pathToFileURL(join(repository, "scripts/run-agent-evals.mjs")).href)};`);
   const command = join(repo, "scripts/sanitize-agent-evidence.mjs");
-  return { base, allowed, command };
+  return { base, repo, allowed, command };
 }
 async function rejects(command, selection) {
   let failure;
@@ -84,6 +85,35 @@ describe("evidence sanitizer path ownership", () => {
     await rejects(command, selected);
     expect(await readFile(sentinel, "utf8")).toBe(sentinelText);
     expect(await readFile(join(selected, "a-normal.md"), "utf8")).toBe(sentinelText);
+  });
+
+  it("rejects replacement of a preflighted file without changing the replacement or moved sentinel", async () => {
+    const { base, repo, allowed } = await fixture(), selected = join(allowed, "case"), file = join(selected, "artifact.md");
+    await mkdir(selected);
+    await writeFile(file, sentinelText);
+    const evidence = await prepareEvidenceRoot(repo, selected), moved = join(base, "outside-original.md");
+    await rename(file, moved);
+    await writeFile(file, "replacement stays unchanged\n");
+    await expect(evidence.write(join(evidence.root, "artifact.md"), "must not be written")).rejects.toThrow("unlinked evidence directory");
+    expect(await readFile(file, "utf8")).toBe("replacement stays unchanged\n");
+    expect(await readFile(moved, "utf8")).toBe(sentinelText);
+  });
+
+  it("rejects independent device changes in both real path and descriptor identities with unchanged inode", async () => {
+    const directory = await temporary(), file = join(directory, "identity.md");
+    await writeFile(file, sentinelText);
+    const pathIdentity = await lstat(file, { bigint: true }), handle = await open(file, "r");
+    try {
+      const descriptorIdentity = await handle.stat({ bigint: true });
+      for (const identity of [pathIdentity, descriptorIdentity]) {
+        expect(() => assertFileIdentity(identity, identity)).not.toThrow();
+        const changedDevice = Object.assign(Object.create(identity), { dev: identity.dev + 1n });
+        expect(changedDevice.ino).toBe(identity.ino);
+        expect(() => assertFileIdentity(changedDevice, identity)).toThrow("unlinked evidence directory");
+        const changedLinks = Object.assign(Object.create(identity), { nlink: 2n });
+        expect(() => assertFileIdentity(changedLinks, identity)).toThrow("unlinked evidence directory");
+      }
+    } finally { await handle.close(); }
   });
 
   it.runIf(process.platform === "win32" && Boolean(process.env.GRILL_EVAL_OTHER_DRIVE_TEMP))("rejects an available different-drive selection without changing its sentinel", async () => {
