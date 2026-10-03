@@ -1,0 +1,41 @@
+{
+  "startedAt": "2026-10-03T00:28:41.577Z",
+  "agent": "codex",
+  "version": "codex-cli 0.144.4",
+  "node": "v24.21.0",
+  "sourceFiles": {
+    "lib/pack.ts": "c77455057d7f92bae3e01c462ea8dd9f6d098850cd7a14e7bd6fd1a4c599a77d",
+    "skills/check-contract/SKILL.md": "0b89db87114c2566cbdc04cfd2692fab7bddeb40555dca72424985375a9bee02",
+    "cli/spec-format.mjs": "d333f8f696d9a06432ecf14acfb1b7ecaa4b826a67644ce25c4ba516bd5bbc75",
+    "evals/fixtures.mjs": "f52b227150f5d0f0abc17c8708f1cb216537aee3819a62e62ed156dae1a4cd88"
+  },
+  "limits": {
+    "callMs": 120000,
+    "runMs": 1800000,
+    "calls": 14,
+    "outputBytes": 2097152,
+    "claudePerCallBudgetUsd": 1
+  },
+  "isolation": "Synthetic temp fixture only; no CLI model override; fresh CLI per phase with verbatim interview transcript replay; no response schema or structure repair prompts.",
+  "cases": [
+    {
+      "id": "member-frontend",
+      "artifactExists": true,
+      "structureOk": true,
+      "results": [
+        {
+          "phase": "interview",
+          "exitCode": 0,
+          "stopped": null
+        },
+        {
+          "phase": "write",
+          "exitCode": 0,
+          "stopped": null
+        }
+      ]
+    }
+  ],
+  "stopped": null,
+  "finishedAt": "2026-10-03T00:30:19.286Z"
+}

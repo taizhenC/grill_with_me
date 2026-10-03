@@ -1,0 +1,4 @@
+{
+  "status": "defective clean fixture; excluded from zero-false-finding gate",
+  "reason": "Contract assigned Backend tickets.closed writes, but original source only returned a static object. Codex baseline finding was correct; Claude zero-findings missed this requirement. Drift now uses SQL SELECT/UPDATE plus a Database-owned injected query adapter, explicitly static boundary scope without live connection/HTTP wiring."
+}

@@ -1,0 +1,4 @@
+{
+  "status": "setup-only; no agent behavior measured",
+  "reason": "Dependency installation overlapped fixture initialization, temporarily making zod unavailable. No agent task invocation occurred. Re-run follows completed clean installation under a new directory."
+}
