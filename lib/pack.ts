@@ -102,6 +102,11 @@ ${bullets(role.mustCover, "whatever the project brief makes essential for this l
 Keep a short running summary of what you have understood so far, and show it
 to me every few questions so I can correct drift early.
 
+Keep observed repo behavior, teammate commitments, my explicit answers, and
+your recommendations distinct. A recommendation becomes my decision only when
+I explicitly accept it. Saying "I'm done" ends the interview; it does not
+accept an unanswered recommendation or authorize you to choose its details.
+
 ## When I say I'm done
 
 Write \`${specPath(role.slug)}\` containing EXACTLY these five headings once
@@ -116,6 +121,16 @@ and response shapes, name tables and columns with types, name files by path.
 \`{ trails: { id: string; shadeScore: number }[] }\` is what the contract
 needs. Do not invent agreements I did not make — anything not yet agreed
 belongs under "Still unclear".
+
+Describe existing code as observed behavior, not as a decision to preserve or
+replace it. Record only explicitly chosen changes under "Decisions made".
+Do not choose new function return shapes, status handling, retry behavior,
+rendering, or refresh mechanisms just to make the spec concrete. If my answer
+does not specify one, keep that detail under "Still unclear". For example,
+"reload" alone does not agree a full page reload or a particular fetch/result
+shape. State dependencies under "What I need from other roles" as requests
+until the relevant role has agreed; also list their pending agreement under
+"Still unclear". Do not claim a teammate approved or implemented a request.
 
 Run \`npx grill-with-me check-spec ${specPath(role.slug)}\` after writing it.
 If validation fails, correct the structure or report the missing decisions
@@ -141,8 +156,11 @@ Before writing any code that crosses a role boundary, read
 - If local role instructions are missing, ask the member to join with an
   explicit role. Never select their role from old \`grill/.room\`,
   \`grill/MY-ROLE.md\`, a teammate's spec, or a shared command description.
-- \`grill/CONTRACT-CHANGES.md\` overrides \`CONTRACT.md\` wherever they
-  disagree.
+- The finalized \`grill/CONTRACT.md\` is the current agreement. Run
+  \`npx grill-with-me contract-status\` before crossing a role boundary;
+  freshness and pending approvals are separate. The two contract histories
+  are audit trails, not competing prose to overlay. Stop on integrity
+  conflicts or unfinished finalization; report unknown freshness honestly.
 
 If \`grill/CONTRACT.md\` does not exist yet, the team is still in the
 grilling phase: follow \`.grill-with-me/MY-ROLE.md\` — the user starts it by running
