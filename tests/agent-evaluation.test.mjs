@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir, homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { cases, createFixture } from "../evals/fixtures.mjs";
-import { selectedEvents, assistantText, invoke, redactEvidence } from "../scripts/run-agent-evals.mjs";
+import { selectedEvents, assistantText, invoke, redactEvidence, homeReadFindings, redactForeignOutputs } from "../scripts/run-agent-evals.mjs";
 
 const directories = [];
 async function temporary() {
@@ -63,6 +63,18 @@ describe("reproducible live-agent evaluation inputs", () => {
 });
 
 describe("agent evidence handling", () => {
+  it("distinguishes native runtime paths from actual global content reads and redacts foreign output", () => {
+    const shell = join(homedir(), "runtime/pwsh.exe");
+    const events = [
+      { type: "item.completed", item: { id: "local", type: "command_execution", command: `"${shell}" -Command 'Get-Content README.md'`, exit_code: 0, aggregated_output: "fixture" } },
+      { type: "item.completed", item: { id: "foreign", type: "command_execution", command: `"${shell}" -Command 'Get-Content ${join(homedir(), ".agents/skills/grilling/SKILL.md")}'`, exit_code: 0, aggregated_output: "private global text" } },
+    ];
+    expect(homeReadFindings("codex", events)).toHaveLength(1);
+    const redacted = redactForeignOutputs("codex", events);
+    expect(redacted[0].item.aggregated_output).toBe("fixture");
+    expect(redacted[1].item.originalOutputSha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(JSON.stringify(redacted)).not.toContain("private global text");
+  });
   it("redacts nested shell-escaped account and fixture paths", () => {
     const directory = join(tmpdir(), "grill-eval-test-owned");
     const result = redactEvidence({ command: homedir().replaceAll("\\", "\\\\"), nested: [{ path: directory }] }, directory);

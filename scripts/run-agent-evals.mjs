@@ -109,6 +109,42 @@ export function assistantText(agent, events) {
     : events.filter(e => e.type === "item.completed" && e.item?.type === "agent_message").map(e => e.item.text).join("\n\n");
 }
 
+// A workspace-write sandbox restricts writes, not reads. This detector catches
+// explicit account-home reads, but is not a complete shell/path security parser.
+export function homeReadFindings(agent, events) {
+  const variants = [homedir(), homedir().replaceAll("\\", "/"), homedir().replaceAll("\\", "\\\\"), "${HOME}"];
+  const findings = [];
+  for (const event of events) {
+    if (agent === "codex" && event.type === "item.completed" && event.item?.type === "command_execution") {
+      const command = event.item.command ?? "";
+      // The native shell executable may itself live under HOME. Only inspect
+      // its command body, preserving that harmless runtime path as evidence.
+      const body = command.split(/-Command\s/i).slice(1).join("-Command ");
+      if (/Get-Content|\bcat\b|\btype\b/i.test(body) && variants.some(path => body.toLowerCase().includes(path.toLowerCase())))
+        findings.push({ itemId: event.item.id, command, exitCode: event.item.exit_code,
+          reason: "Explicit account-home content read; review actual output and intent." });
+    }
+    if (agent === "claude" && event.type === "assistant") for (const content of event.content) {
+      if (content.type === "tool_use" && ["Read", "Grep", "Glob"].includes(content.name)) {
+        const path = content.input?.file_path ?? content.input?.path;
+        if (typeof path === "string" && variants.some(home => path.toLowerCase().startsWith(home.toLowerCase())))
+          findings.push({ itemId: content.id, path, reason: "Explicit account-home file-tool access." });
+      }
+    }
+  }
+  return findings;
+}
+
+export function redactForeignOutputs(agent, events) {
+  const ids = new Set(homeReadFindings(agent, events).map(finding => finding.itemId));
+  return events.map(event => {
+    if (agent !== "codex" || !ids.has(event.item?.id) || !event.item.aggregated_output) return event;
+    const output = event.item.aggregated_output;
+    return { ...event, item: { ...event.item, aggregated_output: "[Outside-fixture content omitted from public evidence]",
+      outsideFixtureOutputRedacted: true, originalOutputSha256: sha(output), originalOutputBytes: Buffer.byteLength(output) } };
+  });
+}
+
 export function redactEvidence(value, directory) {
   function sanitize(input) {
     if (typeof input === "string") {
@@ -188,6 +224,7 @@ async function run(config) {
       ? "Read AGENTS.md and the installed .claude/commands/grill-my-role.md instruction, follow its references, and start the interview."
       : "Read check-contract.md and follow it. Write grill/CHECK-REPORT.md, then summarize the result. The fixture has no package manager/compiler; if a compiler is needed report that as unverified instead of installing one.");
     const results = [];
+    const reads = [];
     for (const phase of fixture.kind === "member" ? ["interview", "write"] : ["check"]) {
       const args = config.agent === "claude" ? ["--restricted", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
         "--tools", "Read,Glob,Grep,Write,Edit,Bash", "--allowedTools", "Read,Glob,Grep,Write,Edit", "Bash(node check-spec.mjs *)", "Bash(node .eval-cli/grill.mjs contract-status)",
@@ -202,6 +239,7 @@ async function run(config) {
       const raw = await invoke(executable, args, directory, prompt, Math.min(MAX_CALL_MS, Math.max(1, MAX_RUN_MS - (Date.now() - began))), phase === "write" ? artifactPath : null);
       const events = selectedEvents(config.agent, raw.stdout);
       const text = assistantText(config.agent, events);
+      reads.push(...homeReadFindings(config.agent, events));
       if (phase === "write") {
         const write = events.filter(e => e.type === "assistant").flatMap(e => e.content)
           .find(c => c.type === "tool_use" && c.name === "Write" && c.input.file_path?.endsWith(`${fixture.role.slug}-spec.md`));
@@ -214,7 +252,7 @@ async function run(config) {
       }
       const result = { phase, startedAt: raw.startedAt, durationMs: raw.durationMs, exitCode: raw.exitCode,
         stopped: raw.stopped, invocation: { executable: config.agent === "claude" ? "claude" : "node ${CODEX_ENTRY}", args: args.map(a => a === entry ? "${CODEX_ENTRY}" : a), prompt },
-        events, assistantText: text, stderr: raw.stderr };
+        events: redactForeignOutputs(config.agent, events), assistantText: text, stderr: raw.stderr };
       await writeFile(join(recordDirectory, `${phase}.json`), redactEvidence(result, directory));
       results.push({ phase, exitCode: raw.exitCode, stopped: raw.stopped });
       if (raw.exitCode !== 0 || raw.stopped || events.some(e => e.isError || e.type === "turn.failed" || e.type === "error")) {
@@ -234,7 +272,8 @@ async function run(config) {
     const validation = fixture.kind === "member" && content !== null ? validateSpec(content) : null;
     await writeFile(join(recordDirectory, "outcome.json"), JSON.stringify({ results, modifications, added, target,
       artifactExists: content !== null, structure: validation,
-      scopeOk: modifications.length === 0 && added.every(path => path === target),
+      writeScopeOk: modifications.length === 0 && added.every(path => path === target),
+      readScope: { knownHomeReadFindings: reads, fullyConfined: false, review: "Manual trace review required; write scope does not prove read confinement." },
       manualGrade: "Pending; structure validity is not a behavior grade." }, null, 2) + "\n");
     manifest.cases.push({ id: fixture.id, artifactExists: content !== null, structureOk: validation?.ok ?? null, results });
     await writeFile(join(out, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
