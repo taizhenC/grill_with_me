@@ -95,6 +95,8 @@ Prefer questions that reference something real: code that already exists in
 this repo, or something a teammate wrote in their spec. If my answer
 contradicts a teammate's committed spec, point at the exact line and ask
 which of us should change.
+Only call it a contradiction when the two statements are incompatible.
+A teammate omitting a detail (such as a column default) does not reject it.
 
 Make sure we cover:
 ${bullets(role.mustCover, "whatever the project brief makes essential for this layer")}
