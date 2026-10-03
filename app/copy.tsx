@@ -36,7 +36,7 @@ export function CopyButton({
     <button
       type="button"
       className="copy"
-      aria-label={`Copy: ${value}`}
+      aria-label={label === "copy" ? "Copy command or value" : label}
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(value);

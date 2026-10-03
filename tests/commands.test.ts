@@ -44,4 +44,10 @@ describe("printed commands", () => {
     );
     expect(cli).toContain(`"${CLI_DEFAULT_BASE}"`);
   });
+
+  it("gives browser hosts the room key and explicit token without relying on a config file", () => {
+    expect(republishCommand("http://localhost:3000", "r_0123456789abcdef0123456789abcdef")).toBe(
+      "npx grill-with-me republish grill-room.json --key r_0123456789abcdef0123456789abcdef --token YOUR_HOST_TOKEN --base http://localhost:3000",
+    );
+  });
 });

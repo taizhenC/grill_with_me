@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { CopyLine, CopyButton } from "./copy";
+import { browserErrors, browserJson } from "@/lib/browser-api";
+import { MAX_ROOM_JSON_BYTES, parseGrillRoom } from "@/lib/schema";
+import { republishCommand } from "@/lib/commands";
+import { isRoomKey } from "../cli/room-key.mjs";
 
 type PublishResult = { key: string; hostToken: string; url: string };
 
@@ -22,35 +26,38 @@ export function PublishPanel({
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [pasted, setPasted] = useState("");
+  const pending = useRef(false);
 
-  async function publish(raw: string) {
+  async function publish(input: string | File) {
+    if (pending.current) return;
+    pending.current = true;
     setBusy(true);
     setErrors([]);
+    let sent = false;
     try {
-      const res = await fetch("/api/rooms", { method: "POST", body: raw });
-      const body = await res.json();
+      if (typeof input !== "string") {
+        if (!/\.json$/i.test(input.name)) { setErrors([`${input.name} isn't a .json file — choose grill-room.json`]); return; }
+        if (input.size > MAX_ROOM_JSON_BYTES) { setErrors(["Room JSON exceeds the 256 KiB upload limit."]); return; }
+      }
+      const raw = typeof input === "string" ? input : await input.text();
+      const parsed = parseGrillRoom(raw);
+      if (!parsed.ok) { setErrors(parsed.errors); return; }
+      sent = true;
+      const { response: res, body } = await browserJson("/api/rooms", { method: "POST", body: raw });
       if (!res.ok) {
-        setErrors(
-          body.errors ?? [body.error ?? `upload failed (${res.status})`],
-        );
+        setErrors(browserErrors(body, res.status));
         return;
       }
-      setResult(body);
+      if (!isRoomKey(body.key) || typeof body.hostToken !== "string" || !/^[A-Za-z0-9_-]{32}$/.test(body.hostToken)) throw new Error("invalid publish acknowledgement");
+      setResult({ key: body.key, hostToken: body.hostToken, url: `/r/${body.key}` });
     } catch {
-      setErrors(["network error — the room was not created; try again"]);
+      setErrors([sent
+        ? "Could not confirm publication. A room may have been created, but its host token was not received. Check the connection before publishing again; a new attempt can create another room."
+        : "Could not read that file. Choose it again or paste the JSON below."]);
     } finally {
       setBusy(false);
+      pending.current = false;
     }
-  }
-
-  async function publishFile(file: File) {
-    if (!/\.json$/i.test(file.name)) {
-      setErrors([
-        `${file.name} isn't a .json file — the grill-host skill writes grill-room.json`,
-      ]);
-      return;
-    }
-    await publish(await file.text());
   }
 
   if (result) {
@@ -78,10 +85,12 @@ export function PublishPanel({
           </p>
           <CopyLine value={result.hostToken} label="copy token" />
           <p className="muted small">
-            Save it in your password manager, or publish from the CLI next
-            time (<code>npx grill-with-me publish</code>) — it writes the token
-            to <code>.grill-with-me.json</code> and gitignores it for you.
+            Save it in your password manager. To update this same room, replace
+            YOUR_HOST_TOKEN below with the saved token. Browser publishing does
+            not create a local CLI credential file; an explicit token is used
+            for that invocation and is not saved.
           </p>
+          <CopyLine value={republishCommand(origin, result.key)} label="copy republish command" />
         </div>
 
         <h2>Next</h2>
@@ -120,7 +129,7 @@ export function PublishPanel({
           e.preventDefault();
           setDragging(false);
           const file = e.dataTransfer.files?.[0];
-          if (file) void publishFile(file);
+          if (file) void publish(file);
         }}
       >
         <input
@@ -128,9 +137,10 @@ export function PublishPanel({
           className="sr-only"
           accept=".json,application/json"
           disabled={busy}
+          aria-label="Choose grill-room.json"
           onChange={(e) => {
             const file = e.target.files?.[0];
-            if (file) void publishFile(file);
+            if (file) void publish(file);
           }}
         />
         <strong>{busy ? "publishing…" : "Drop grill-room.json here"}</strong>
@@ -138,14 +148,15 @@ export function PublishPanel({
       </label>
 
       {errors.length > 0 && (
-        <p className="error" role="alert">
-          {["Not published:", ...errors.map((e) => `• ${e}`)].join("\n")}
+        <p className="error" role="alert" aria-label="Publication status">
+          {["Publication status:", ...errors.map((e) => `• ${e}`)].join("\n")}
         </p>
       )}
 
       <details className="paste">
         <summary>Can&apos;t drag a file here? Paste it instead</summary>
         <textarea
+          aria-label="Room JSON"
           value={pasted}
           spellCheck={false}
           onChange={(e) => setPasted(e.target.value)}

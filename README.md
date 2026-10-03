@@ -52,6 +52,12 @@ that destination. Explicit republish tokens apply to that invocation and are
 not saved. Publishing and republishing require an HTTPS origin; HTTP is allowed for
 `localhost`, IPv4 loopback, and `::1` development servers. Redirects are refused.
 
+Browser hosts must retain the displayed token. The result and host pages print a
+republish command with that room's `--key`, a `YOUR_HOST_TOKEN` placeholder, and
+the current service origin. Replace the placeholder; explicit tokens apply only
+to that invocation. Publishing again creates a new room. An interrupted response
+can leave publication uncertain; the app does not claim that no room was created.
+
 Keep the current `grill-room.json` with the host's checkout and share it in Git.
 When every role's spec is committed, run `npx grill-with-me merge-preflight`.
 It checks the project context, expected roles, and every role spec, and names
@@ -126,6 +132,12 @@ remove that temporary file before retrying. Keep the checkout idle: this is not
 a multi-file transaction or protection against concurrent local path changes.
 
 ## During the build — anyone, repeatedly
+
+The browser ZIP fallback stages `grill-with-me-pack/pack.json` and `IMPORT.md`.
+Extraction does not install files in your checkout. Use the join command for
+validated installation, or have your local agent prepare a reviewed import using
+the instructions; preserve existing instruction fences and edited files. The
+manual path is not the CLI's deterministic installer and requires review.
 
 - **`check-contract`** — compares the repo against the contract and reports
   drift by role, with a `file:line` for every finding.
@@ -210,7 +222,21 @@ CI runs the full test suite, typecheck, and production build on Linux with
 Node.js 24. It also runs the CLI tests and installs the actual npm tarball on
 Windows and Linux with Node.js 22 and 24. These checks need no API keys or
 deployment credentials. Dependency security updates are reviewed separately
-from this functional baseline.
+from this functional baseline; the app job blocks moderate, high, and critical
+findings with `npm audit --audit-level=moderate`. Review an advisory's impact and
+update the lock; do not use broad forced upgrades to clear the check.
+
+Chromium onboarding tests run the compiled application with explicit temporary
+in-memory test storage. They exercise file input, paste, clipboard, keyboard role
+claims/takeover, printed browser-host republishing through the actual CLI, staged
+ZIP downloads, and interrupted/malformed/oversized responses. This fixture server
+does not validate a hosted Supabase project or a deployed browser session.
+
+```bash
+npx --no-install playwright install --only-shell chromium
+npm run build
+npm run test:browser
+```
 
 Run the distribution checks locally after `npm ci`:
 

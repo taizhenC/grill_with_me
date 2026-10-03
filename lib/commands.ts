@@ -22,8 +22,9 @@ export function joinCommand(
   return `npx grill-with-me join ${key}${role}${baseFlag(origin)}`;
 }
 
-export function republishCommand(origin: string): string {
-  return `npx grill-with-me republish grill-room.json${baseFlag(origin)}`;
+export function republishCommand(origin: string, browserRoomKey?: string): string {
+  const credentials = browserRoomKey ? ` --key ${browserRoomKey} --token YOUR_HOST_TOKEN` : "";
+  return `npx grill-with-me republish grill-room.json${credentials}${baseFlag(origin)}`;
 }
 
 export function hostInstallCommand(origin: string): string {
