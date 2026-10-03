@@ -166,12 +166,22 @@ async function run(config) {
     manifest.sourceFiles[path] = sha(await readFile(join(repository, path), "utf8"));
   const began = Date.now();
   let calls = 0;
+  await writeFile(join(out, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
   for (const fixtureCase of selected) {
     if (Date.now() - began > MAX_RUN_MS || calls >= MAX_CALLS) { manifest.stopped = "run-limit"; break; }
     const directory = join(working, fixtureCase.id);
     const recordDirectory = join(out, fixtureCase.id);
     await mkdir(recordDirectory);
-    const { entry: fixture, files: input, revision } = await createFixture(fixtureCase.id, directory);
+    let initialized;
+    try { initialized = await createFixture(fixtureCase.id, directory); }
+    catch (error) {
+      manifest.stopped = "fixture-setup-failure";
+      manifest.setupFailure = { case: fixtureCase.id, message: error.message, agentTaskInvoked: false };
+      await writeFile(join(out, "manifest.json"), redactEvidence(manifest, directory));
+      console.error(`Fixture setup failed before agent invocation: ${fixtureCase.id}`);
+      break;
+    }
+    const { entry: fixture, files: input, revision } = initialized;
     await writeFile(join(recordDirectory, "fixture.json"), JSON.stringify({ files: input, expected: fixture.expected, revision }, null, 2) + "\n");
     const environment = "This is a synthetic offline fixture. Work only inside this directory. Do not access parent/user directories, credentials, network, git, or install packages. The local equivalent of npx grill-with-me check-spec is node check-spec.mjs PATH; use that instead. The local equivalent of npx grill-with-me contract-status is node .eval-cli/grill.mjs contract-status. This is the actual copied CLI, not a mocked status. Do not modify source, inputs, role instructions, contract, or the local gate. Report permission failures without trying alternate paths or commands.";
     let prompt = `${environment}\n\n` + (fixture.kind === "member"
