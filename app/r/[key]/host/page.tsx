@@ -91,9 +91,11 @@ export default async function HostPage({
       <CopyLine value={republishCommand(origin)} />
       <p className="muted small">
         That reads your host token from <code>.grill-with-me.json</code>. If
-        you published in the browser instead, add{" "}
-        <code>--token YOUR_HOST_TOKEN</code> the first time and it saves it.
+        you published in the browser, use the explicit room key and saved token
+        below. Replace YOUR_HOST_TOKEN with your token; this invocation does
+        not save it locally.
       </p>
+      <CopyLine value={republishCommand(origin, pub.key)} label="copy browser republish command" />
       <details>
         <summary>No Node.js? The equivalent curl</summary>
         <pre className="mono small">
@@ -116,8 +118,9 @@ export default async function HostPage({
         merge a spec that came back malformed rather than guessing at it.
       </p>
       <p className="muted small">
-        Rooms are deleted {ROOM_TTL_DAYS} days after publishing. Nothing your
-        team writes is stored here.
+        Room access expires {ROOM_TTL_DAYS} days after publishing. Expired data
+        is physically removed by the next successful purge configured by this
+        service&apos;s operator. Your code, specs, and contracts stay in your repo.
       </p>
     </>
   );
