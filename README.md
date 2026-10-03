@@ -330,5 +330,8 @@ checks use controlled HTTP RPC responses; `npm run test:db` separately proves
 real PostgreSQL quota concurrency and persistence across an application restart.
 Apply migration `0003_shared_request_quotas.sql` before deploying this version.
 Host deletion and retention also require `0004_retention_and_room_deletion.sql`.
+Recoverable publication requires `0005_publication_recovery.sql`; apply it before
+deploying clients that send recovery capabilities. See the
+[publication recovery protocol](doc/publication-recovery-protocol.md).
 Database checks include physical deletion, concurrent bounded cleanup, rollback
 and browser-role denial; compiled checks cover host DELETE and maintenance GET/POST.
