@@ -66,6 +66,16 @@ Then tell your agent: *run the merge-contract skill*; it must pass the same gate
 before writing. A fresh host uses this local room file and needs no member pack.
 `grill/CONTRACT.md` lands in the repo. Commit it.
 
+Contract skills stage prose/types and finalize one hash-linked revision with
+append-only history. Commit current prose, optional generated types, both
+histories, and state together. `contract-status` distinguishes fresh, stale,
+and offline unknown sources independently of room pack versions, while pending
+role agreement remains visible. Re-merges must explicitly preserve or reconcile
+amendments. TypeScript projects run `contract-typecheck` against real importing
+producer/caller code and their installed project compiler; unused generated
+types are unintegrated. See [the revision and recovery guide](doc/contract-revisions.md)
+and [the producer/consumer example](examples/type-integration/).
+
 ## Each member — ten minutes
 
 ```bash
