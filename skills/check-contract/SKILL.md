@@ -7,19 +7,28 @@ You are checking whether the code matches what the team agreed. Your report
 tells the person who runs you **who to go talk to** — findings are grouped
 by role, never presented as a bare file list.
 
-## Step 0 — staleness and amendments
+## Step 0 — revision integrity, freshness, and pending agreement
 
-- Read `.grill-with-me/member.json` if present. If the pack version there is older than the
-  version named in the newest entry of `grill/CONTRACT-CHANGES.md`, warn
-  that this checkout may hold a stale pack.
+- Run `npx grill-with-me contract-status` before checking code. Record its exact
+  revision ID and freshness: fresh means local source/artifact hashes match;
+  stale means source hashes changed; unknown means source comparison is
+  unavailable or integrity/recovery is incomplete. Never compare a room's
+  packVersion with a contract revision. Offline unknown is unverified freshness,
+  not confirmed drift. Stop on integrity conflicts or unfinished finalization;
+  do not produce a clean report against mixed prose/types/history.
+- Read `.grill-with-me/member.json` if present.
 - This local receipt also names the role this checkout joined as. Put that role's
   findings first in the report: they are the only ones the person running
   you can fix without going to find someone.
 - If local state is absent, do not infer a current role from legacy shared
   `grill/.room`, `grill/MY-ROLE.md`, or a teammate's spec. Report all roles evenly.
-- Read `grill/CONTRACT-CHANGES.md` if it exists. **Amendments override
-  CONTRACT.md.** Where they conflict, the amendment is the agreement, and
-  code matching the amendment is NOT drift.
+- Read `grill/CONTRACT-HISTORY.jsonl` and `grill/CONTRACT-CHANGES.md`.
+  The current CONTRACT.md is the current truth;
+  finalized amendments are already applied there. Pending roles in status must
+  remain visibly pending even when file hashes are fresh. History is an audit
+  trail, not a second competing version to silently overlay. For legacy
+  unrecorded contracts, flag freshness unknown and request explicit adoption;
+  surface prose/history contradictions for reconciliation rather than guessing.
 
 ## Step 1 — scope the check
 
@@ -29,9 +38,16 @@ Do NOT read the whole repo. Derive the file set from the contract itself:
 2. Files defining the tables/models named in `## Data model`
 3. Call sites of contract endpoints — grep for each endpoint path literal
    and each `Paths` constant usage
-4. If `grill/contract.ts` exists: files importing it, and run
-   `npx tsc --noEmit` first — compile errors against contract types are
-   findings of the highest confidence
+4. If `grill/contract.ts` exists, run
+   `npx grill-with-me contract-typecheck <consuming-tsconfig>` first. This uses
+   the project's installed compiler and real declared typecheck command, plus
+   selected-project diagnostics. Choose each leaf config in a solution repo.
+   No compiler/config means unknown; missing or unused imports mean
+   unintegrated. Neither is a clean typed check. Never automatically download
+   TypeScript or compile only the generated file. Use the reported consumers
+   and concrete diagnostics to scope findings; compare existing baseline errors.
+   Bound imports do not prove both sides of every endpoint use the contract or
+   establish runtime behavior. Inspect producer/caller boundaries explicitly.
 
 If a contract file does not exist yet in the repo, that is a finding
 ("endpoint agreed but not implemented"), not a reason to search elsewhere.
@@ -54,7 +70,10 @@ an empty report — do not manufacture findings to seem useful.
 
 ```markdown
 # Contract check — <date>
-_Against CONTRACT.md + N amendments. M files in scope._
+_Against contract revision <ID or unrecorded>; freshness <fresh/stale/unknown>; typed integration <result>. M files in scope._
+
+## Pending agreement
+- <revision ID and roles still pending, or none>
 
 ## ⚠️ <Role name>
 - `path/to/file.ts:LINE` — what the code does vs what the contract says.
