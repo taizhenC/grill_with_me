@@ -1,0 +1,272 @@
+{
+  "sourceRevision": "dd744649c044b306056e0899c52022e4c92a6aab",
+  "runtimeSourceEquivalentTo": "9be59e4deabf87e59185e0000cf55bf61cbaa592",
+  "verifiedAt": "2026-10-03T02:08:25.091Z",
+  "filesScanned": 23,
+  "replacementCharacters": 0,
+  "privatePathHits": 0,
+  "privateResetTimingHits": 0,
+  "selectedEventPrivacy": "No reasoning/rate-limit/account-init metadata retained; private paths redacted; weekly-quota category retained with reset timing omitted and original selected-record hash/bytes.",
+  "sources": [
+    {
+      "path": "lib/pack.ts",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "lib/schema.ts",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "skills/check-contract/SKILL.md",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "skills/amend-contract/SKILL.md",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "skills/merge-contract/SKILL.md",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/contract-files.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/contract-record.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/contract-types.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/contract-workflow.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/grill.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/host-credentials.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/http.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/member-storage.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/merge-input.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/merge-preflight.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/pack-files.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/pack-install.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/package.json",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/publication-capability.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/publication-recovery.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/room-key.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/spec-format.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "evals/fixtures.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "scripts/run-agent-evals.mjs",
+      "matchesFrozenHash": true
+    }
+  ],
+  "members": [
+    {
+      "case": "member-frontend",
+      "firstEqualsFinal": true,
+      "firstStructure": {
+        "ok": true,
+        "missing": [],
+        "thin": [],
+        "errors": []
+      },
+      "writeScopeOk": true,
+      "handoffCompleted": true
+    },
+    {
+      "case": "member-backend",
+      "firstEqualsFinal": true,
+      "firstStructure": {
+        "ok": true,
+        "missing": [],
+        "thin": [],
+        "errors": []
+      },
+      "writeScopeOk": true,
+      "handoffCompleted": true
+    },
+    {
+      "case": "member-database",
+      "firstEqualsFinal": true,
+      "firstStructure": {
+        "ok": true,
+        "missing": [],
+        "thin": [],
+        "errors": []
+      },
+      "writeScopeOk": true,
+      "handoffCompleted": false
+    }
+  ],
+  "phases": [
+    {
+      "case": "member-backend",
+      "phase": "interview",
+      "durationMs": 47498,
+      "exitCode": 0,
+      "completed": true,
+      "quotaFailure": false,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5"
+      ],
+      "estimatedCostUsd": 0.24396500000000002,
+      "permissionDenials": 0,
+      "exactSpecGates": 0,
+      "exactGateOutputs": [],
+      "writes": 0,
+      "edits": 0
+    },
+    {
+      "case": "member-backend",
+      "phase": "write",
+      "durationMs": 98340,
+      "exitCode": 0,
+      "completed": true,
+      "quotaFailure": false,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5"
+      ],
+      "estimatedCostUsd": 0.36722600000000005,
+      "permissionDenials": 0,
+      "exactSpecGates": 1,
+      "exactGateOutputs": [
+        "{\"ok\":true,\"missing\":[],\"thin\":[],\"errors\":[]}"
+      ],
+      "writes": 1,
+      "edits": 0
+    },
+    {
+      "case": "member-database",
+      "phase": "interview",
+      "durationMs": 43010,
+      "exitCode": 0,
+      "completed": true,
+      "quotaFailure": false,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5"
+      ],
+      "estimatedCostUsd": 0.22726000000000002,
+      "permissionDenials": 0,
+      "exactSpecGates": 0,
+      "exactGateOutputs": [],
+      "writes": 0,
+      "edits": 0
+    },
+    {
+      "case": "member-database",
+      "phase": "write",
+      "durationMs": 54192,
+      "exitCode": 1,
+      "completed": false,
+      "quotaFailure": true,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5",
+        "<synthetic>"
+      ],
+      "estimatedCostUsd": 0.25381,
+      "permissionDenials": 0,
+      "exactSpecGates": 1,
+      "exactGateOutputs": [
+        "{\"ok\":true,\"missing\":[],\"thin\":[],\"errors\":[]}"
+      ],
+      "writes": 1,
+      "edits": 0
+    },
+    {
+      "case": "member-frontend",
+      "phase": "interview",
+      "durationMs": 40694,
+      "exitCode": 0,
+      "completed": true,
+      "quotaFailure": false,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5"
+      ],
+      "estimatedCostUsd": 0.20799449999999997,
+      "permissionDenials": 0,
+      "exactSpecGates": 0,
+      "exactGateOutputs": [],
+      "writes": 0,
+      "edits": 0
+    },
+    {
+      "case": "member-frontend",
+      "phase": "write",
+      "durationMs": 91971,
+      "exitCode": 0,
+      "completed": true,
+      "quotaFailure": false,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5"
+      ],
+      "estimatedCostUsd": 0.34492149999999994,
+      "permissionDenials": 1,
+      "exactSpecGates": 1,
+      "exactGateOutputs": [
+        "{\"ok\":true,\"missing\":[],\"thin\":[],\"errors\":[]}"
+      ],
+      "writes": 1,
+      "edits": 0
+    }
+  ],
+  "unattemptedCases": [
+    "member-auth",
+    "member-qa",
+    "clean-baseline",
+    "clean-amendment",
+    "clean-no-local-role",
+    "seeded-drift"
+  ],
+  "completion": "Two full member cases, one partial member write stopped by actual account weekly quota; no retry."
+}
