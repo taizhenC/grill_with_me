@@ -87,6 +87,7 @@ beforeAll(async () => {
         key: ROOM_KEY,
         hostToken: "token-abc",
         url: `/r/${ROOM_KEY}`,
+        recovery: { expiresAt: new Date((Number(String(req.headers["idempotency-key"]).split(".")[1]) + 86400) * 1000).toISOString(), replayed: false },
       });
     }
     if (req.method === "POST" && url.pathname.endsWith("/republish")) {

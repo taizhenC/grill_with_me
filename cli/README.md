@@ -48,6 +48,36 @@ Git ignore protection before saving `.grill-with-me.json`; already tracked
 credential files are rejected. Keep host tokens private. An explicit `--token`
 or `GRILL_WITH_ME_TOKEN` applies to the destination you request for that call.
 
+Before the first publication request, the CLI saves the origin, original JSON
+and a private recovery capability in `.grill-with-me-publish.json` (ignored,
+written with owner-only file mode where supported). Keep this file private like
+the host token. A lost response can be recovered from a new terminal process:
+
+```sh
+npx --no grill-with-me publish --recover
+```
+
+Recovery resends the saved original body and destination, even if the source file
+was edited. It returns the same room/token for up to 24 hours after issuance;
+removed or expired rooms cannot be recreated by retry. A normal repeated `publish`
+requires the exact same body and origin. Changed input/destination or expired
+attempts stop without silently minting another capability. Existing acknowledged
+attempts are retained too, preventing accidental duplicate publication.
+
+After checking the original outcome, use `publish <file> --new-publication` to
+explicitly replace the saved attempt and create a different room. This abandons
+the previous local recovery capability and does not delete the previous room.
+Use `republish` to update an existing room. `publish --dry-run` sends nothing and
+writes no ignore, recovery or credential file. `--force` cannot bypass protection.
+
+Recovery requires the server's publication-recovery migration/protocol; older
+servers cannot acknowledge it. Git is required to verify host credential/recovery
+storage, including untracked/ignored temporary files. A killed local write can
+leave `.grill-with-me-publish.json.tmp`: inspect and remove that temporary file
+before retrying. Do not print or commit its contents. This protects ordinary
+process failures; it is not a lock against malicious concurrent filesystem edits
+or a guarantee against disk/power failure.
+
 `delete` requires an explicit room key/URL (or `--key`) and its host token. It
 removes the shared database row before or after expiry, preserving local packs,
 specs and saved credentials. Saved tokens cannot authorize another origin/room;

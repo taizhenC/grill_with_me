@@ -6,4 +6,5 @@ export class PublicationError extends Error {
   constructor(code: string, message: string, status: number);
 }
 export function readPublicationCapability(value: unknown, now?: number): { issuedAt: number; expiresAt: number };
+export function parsePublicationCapability(value: unknown): { issuedAt: number; expiresAt: number };
 export function mintPublicationCapability(now?: number): string;

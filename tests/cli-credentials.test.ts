@@ -5,6 +5,7 @@ import { chmod, link, mkdir, mkdtemp, readFile, readdir, stat, symlink, writeFil
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { readPublicationCapability } from "@/cli/publication-capability.mjs";
 
 const exec = promisify(execFile);
 const CLI = process.env.GRILL_CLI_TEST_BIN ?? join(__dirname, "..", "cli/grill.mjs");
@@ -46,7 +47,7 @@ beforeAll(async () => {
     }
     res.setHeader("content-type", "application/json");
     res.end(JSON.stringify(req.method === "DELETE" ? { ok: true } : path === "/api/rooms"
-      ? { key: KEY, hostToken: TOKEN, url: `/r/${KEY}` }
+      ? { key: KEY, hostToken: TOKEN, url: `/r/${KEY}`, recovery: { expiresAt: new Date(readPublicationCapability(req.headers["idempotency-key"]).expiresAt).toISOString(), replayed: false } }
       : { key: KEY, version: 2 }));
   });
   foreign = createServer(async (req, res) => {
