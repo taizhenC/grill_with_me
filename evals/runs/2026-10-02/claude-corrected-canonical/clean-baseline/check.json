@@ -1,0 +1,745 @@
+{
+  "phase": "check",
+  "startedAt": "2026-10-03T00:48:17.116Z",
+  "durationMs": 105550,
+  "exitCode": 0,
+  "stopped": null,
+  "invocation": {
+    "executable": "claude",
+    "args": [
+      "--restricted",
+      "--strict-mcp-config",
+      "--mcp-config",
+      "{\"mcpServers\":{}}",
+      "--tools",
+      "Read,Glob,Grep,Write,Edit,Bash",
+      "--allowedTools",
+      "Read,Glob,Grep,Write,Edit",
+      "Bash(node check-spec.mjs *)",
+      "Bash(node .eval-cli/grill.mjs contract-status)",
+      "--permission-mode",
+      "dontAsk",
+      "--no-session-persistence",
+      "--disable-slash-commands",
+      "--max-budget-usd",
+      "1",
+      "--output-format",
+      "stream-json",
+      "--verbose",
+      "-p"
+    ],
+    "prompt": "This is a synthetic offline fixture. Work only inside this directory. Do not access parent/user directories, credentials, network, git, or install packages. The local equivalent of npx grill-with-me check-spec is node check-spec.mjs PATH; use that instead. The local equivalent of npx grill-with-me contract-status is node .eval-cli/grill.mjs contract-status. This is the actual copied CLI, not a mocked status. Do not modify source, inputs, role instructions, contract, or the local gate. Report permission failures without trying alternate paths or commands.\n\nRead check-contract.md and follow it. Write grill/CHECK-REPORT.md, then summarize the result. The fixture has no package manager/compiler; if a compiler is needed report that as unverified instead of installing one."
+  },
+  "events": [
+    {
+      "type": "init",
+      "model": "claude-opus-5[1m]",
+      "cliVersion": "2.1.274",
+      "tools": [
+        "Bash",
+        "Edit",
+        "Glob",
+        "Grep",
+        "Read",
+        "Write"
+      ],
+      "mcpServers": [],
+      "permissionMode": "dontAsk"
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "text",
+          "text": "I'll start by reading the contract file."
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_01NEhB3Ajq3apB6QHcsuyk3U",
+          "name": "Read",
+          "input": {
+            "file_path": "${FIXTURE}\\check-contract.md"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_01NEhB3Ajq3apB6QHcsuyk3U",
+          "type": "tool_result",
+          "content": "1\t---\n2\tname: check-contract\n3\tdescription: Check the repo against grill/CONTRACT.md and report drift attributed to a role. Anyone on the team can run this, repeatedly, during the build.\n4\t---\n5\t\n6\tYou are checking whether the code matches what the team agreed. Your report\n7\ttells the person who runs you **who to go talk to** — findings are grouped\n8\tby role, never presented as a bare file list.\n9\t\n10\t## Step 0 — revision integrity, freshness, and pending agreement\n11\t\n12\t- Run `npx grill-with-me contract-status` before checking code. Record its exact\n13\t  revision ID and freshness: fresh means local source/artifact hashes match;\n14\t  stale means source hashes changed; unknown means source comparison is\n15\t  unavailable or integrity/recovery is incomplete. Never compare a room's\n16\t  packVersion with a contract revision. Offline unknown is unverified freshness,\n17\t  not confirmed drift. Stop on integrity conflicts or unfinished finalization;\n18\t  do not produce a clean report against mixed prose/types/history.\n19\t- Read `.grill-with-me/member.json` if present.\n20\t- This local receipt also names the role this checkout joined as. Put that role's\n21\t  findings first in the report: they are the only ones the person running\n22\t  you can fix without going to find someone.\n23\t- If local state is absent, do not infer a current role from legacy shared\n24\t  `grill/.room`, `grill/MY-ROLE.md`, or a teammate's spec. Report all roles evenly.\n25\t- Read `grill/CONTRACT-HISTORY.jsonl` and `grill/CONTRACT-CHANGES.md`.\n26\t  The current CONTRACT.md is the current truth;\n27\t  finalized amendments are already applied there. Pending roles in status must\n28\t  remain visibly pending even when file hashes are fresh. History is an audit\n29\t  trail, not a second competing version to silently overlay. For legacy\n30\t  unrecorded contracts, flag freshness unknown and request explicit adoption;\n31\t  surface prose/history contradictions for reconciliation rather than guessing.\n32\t\n33\t## Step 1 — scope the check\n34\t\n35\tDo NOT read the whole repo. Derive the file set from the contract itself:\n36\t\n37\t1. Every implementing file named in `## Endpoints`\n38\t2. Files defining the tables/models named in `## Data model`\n39\t3. Call sites of contract endpoints — grep for each endpoint path literal\n40\t   and each `Paths` constant usage\n41\t4. If `grill/contract.ts` exists, run\n42\t   `npx grill-with-me contract-typecheck <consuming-tsconfig>` first. This uses\n43\t   the project's installed compiler and real declared typecheck command, plus\n44\t   selected-project diagnostics. Choose each leaf config in a solution repo.\n45\t   No compiler/config means unknown; missing or unused imports mean\n46\t   unintegrated. Neither is a clean typed check. Never automatically download\n47\t   TypeScript or compile only the generated file. Use the reported consumers\n48\t   and concrete diagnostics to scope findings; compare existing baseline errors.\n49\t   Bound imports do not prove both sides of every endpoint use the contract or\n50\t   establish runtime behavior. Inspect producer/caller boundaries explicitly.\n51\t\n52\tIf a contract file does not exist yet in the repo, that is a finding\n53\t(\"endpoint agreed but not implemented\"), not a reason to search elsewhere.\n54\t\n55\t## Step 2 — compare\n56\t\n57\tFor each contract line, check the implementation:\n58\t\n59\t- Field names and shapes in responses vs the contract's response shape\n60\t- Request parsing vs the contract's request shape\n61\t- Table/column names vs the data model\n62\t- Who writes state that another role owns\n63\t- Error behavior where the contract specifies it\n64\t\n65\tOnly report what you can evidence with a file and line. If you cannot read\n66\tenough to be sure, say \"unverified\", never guess. A clean repo must produce\n67\tan empty report — do not manufacture findings to seem useful.\n68\t\n69\t## Step 3 — write grill/CHECK-REPORT.md\n70\t\n71\t```markdown\n72\t# Contract check — <date>\n73\t_Against contract revision <ID or unrecorded>; freshness <fresh/stale/unknown>; typed integration <result>. M files in scope._\n74\t\n75\t## Pending agreement\n76\t- <revision ID and roles still pending, or none>\n77\t\n78\t## ⚠️ <Role name>\n79\t- `path/to/file.ts:LINE` — what the code does vs what the contract says.\n80\t  → Talk to <other role> before changing either side.\n81\t  Outcome: [ ] fix the code   [ ] contract is wrong → run amend-contract   [ ] accepted, ignore\n82\t\n83\t## ✅ <Role name>\n84\t- No drift detected.\n85\t\n86\t## Unverified\n87\t- <anything you could not check, and why>\n88\t```\n89\t\n90\tEvery finding offers the three outcomes above — drift is sometimes the\n91\tcontract's fault, and the fix for that is `amend-contract`, not a code\n92\tchange. If a previous CHECK-REPORT.md exists, carry forward its \"accepted\"\n93\tmarkings and label findings not present last time as **NEW**.\n94\t\n95\tFinish by summarizing: how many findings, how many new, and — if any —\n96\twhich single conversation between two people would clear the most items.\n97\t"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_017MLGrKLwfd1wrB7TXV7pfW",
+          "name": "Bash",
+          "input": {
+            "command": "ls -la \"${FIXTURE}\"",
+            "description": "List fixture directory contents"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_017MLGrKLwfd1wrB7TXV7pfW",
+          "type": "tool_result",
+          "content": "total 34\ndrwxr-xr-x 1 ${USER} 197609    0 Oct  2 20:48 .\ndrwxr-xr-x 1 ${USER} 197609    0 Oct  2 20:48 ..\ndrwxr-xr-x 1 ${USER} 197609    0 Oct  2 20:48 .eval-cli\ndrwxr-xr-x 1 ${USER} 197609    0 Oct  2 20:48 .grill-with-me\n-rw-r--r-- 1 ${USER} 197609 1343 Oct  2 20:48 AGENTS.md\n-rw-r--r-- 1 ${USER} 197609   82 Oct  2 20:48 README.md\n-rw-r--r-- 1 ${USER} 197609 4813 Oct  2 20:48 check-contract.md\n-rw-r--r-- 1 ${USER} 197609  240 Oct  2 20:48 check-spec.mjs\ndrwxr-xr-x 1 ${USER} 197609    0 Oct  2 20:48 db\ndrwxr-xr-x 1 ${USER} 197609    0 Oct  2 20:48 grill\n-rw-r--r-- 1 ${USER} 197609 1863 Oct  2 20:48 grill-room.json\n-rw-r--r-- 1 ${USER} 197609 3308 Oct  2 20:48 spec-format.mjs\ndrwxr-xr-x 1 ${USER} 197609    0 Oct  2 20:48 src",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_014Jo25tvmPN7DB1fNLAt8d8",
+          "name": "Bash",
+          "input": {
+            "command": "cd \"${FIXTURE}\" && node .eval-cli/grill.mjs contract-status",
+            "description": "Run contract-status via local CLI"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_014Jo25tvmPN7DB1fNLAt8d8",
+          "type": "tool_result",
+          "content": "{\n  \"ok\": true,\n  \"freshness\": \"fresh\",\n  \"revision\": {\n    \"id\": \"b033c0aad022a528296ccf76fab39b978516b7bdb248fd9c7577ad2515d83c6e\",\n    \"schemaVersion\": 1,\n    \"number\": 1,\n    \"parent\": null,\n    \"kind\": \"merge\",\n    \"summary\": \"Initial synthetic ticket agreement\",\n    \"changedAgreementIds\": [\n      \"api.tickets.close\",\n      \"api.tickets.list\",\n      \"data.tickets\",\n      \"errors.unspecified\",\n      \"ownership.tickets\"\n    ],\n    \"approval\": \"agreed\",\n    \"agreedBy\": [\n      \"Backend\",\n      \"Frontend\",\n      \"Database\"\n    ],\n    \"pendingRoles\": [],\n    \"resolvesPending\": [],\n    \"amendmentResolution\": [],\n    \"agreements\": {\n      \"api.tickets.close\": \"defbcf6cf7e17f6ff387c44e0a0473e69f45c1530cc87cae09efaec297965ff3\",\n      \"api.tickets.list\": \"d52db7fe4c9186f23b4de0407672a4f16d864643a77ce6504191f51981580be0\",\n      \"data.tickets\": \"d9d0fe25391f2414cff5ad09dd0ec5b565a39abac31891e71ee1247477b1af50\",\n      \"errors.unspecified\": \"fe2389a39625f21e501a2d7d11903f3a09c78c207e2b9e35c0835b77db651f02\",\n      \"ownership.tickets\": \"d36d9f0c60f927cdb511ed00b9d9e5272c9226d09ccb45b0713ada5fc4f0b2c0\"\n    },\n    \"source\": {\n      \"roomFile\": \"grill-room.json\",\n      \"roomHash\": \"a8fa970703a6cdc89ba85811482c30f4cccd810ea299a5f6078c422130f54920\",\n      \"specs\": [\n        {\n          \"role\": \"auth\",\n          \"file\": \"grill/auth-spec.md\",\n          \"hash\": \"e97caf624fc93adc5fe282aa57e69c20457990555886a7ccad2eac7e638be72e\"\n        },\n        {\n          \"role\": \"backend\",\n          \"file\": \"grill/backend-spec.md\",\n          \"hash\": \"4bf881292ab22fbedb704fcf4c35e3352b9ca4817ba8e94773188baf864757a3\"\n        },\n        {\n          \"role\": \"database\",\n          \"file\": \"grill/database-spec.md\",\n          \"hash\": \"28bb6de582c9c84d0fb724c38d6a48f322ef444c63b2b898d66e73ad35b2ec88\"\n        },\n        {\n          \"role\": \"frontend\",\n          \"file\": \"grill/frontend-spec.md\",\n          \"hash\": \"afb58ce69d4136b6e68e7921aa6a1c38b6e78dab7f0d4d69844c5f461a1c5ba7\"\n        },\n        {\n          \"role\": \"qa\",\n          \"file\": \"grill/qa-spec.md\",\n          \"hash\": \"9ed12879c8ae3844ffea5b42f8b266eb10524b9d39bf9c52cbf14c2ee944d04c\"\n        }\n      ]\n    },\n    \"proseHash\": \"15c1be260f63714156c77c51628b1b8606fa4dfb66c1a84e1eb54496c814c927\",\n    \"typesHash\": null,\n    \"historyHash\": \"6118e9e1620406b4f81b6d8a0f9eb2e61f531a7158101688797f7f4513ec4a59\"\n  },\n  \"pending\": []\n}",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_011QxNCEu9FSoyUWNPnVeKYr",
+          "name": "Read",
+          "input": {
+            "file_path": "${FIXTURE}\\AGENTS.md"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_011QxNCEu9FSoyUWNPnVeKYr",
+          "type": "tool_result",
+          "content": "1\t<!-- grill-with-me:start -->\n2\t# Agent instructions\n3\t\n4\tBefore writing any code that crosses a role boundary, read\n5\t`grill/CONTRACT.md` and — if it exists — import types from\n6\t`grill/contract.ts`.\n7\t\n8\t- Use the exact endpoint paths, field names, and data shapes they specify.\n9\t- NEVER invent a field name, endpoint, or response shape. If what you need\n10\t  is not in the contract, stop and tell the user it needs agreeing with the\n11\t  other role first — or run the `amend-contract` skill.\n12\t- `.grill-with-me/MY-ROLE.md` is your local scope. `grill/PROJECT.md` is the product\n13\t  context.\n14\t- If local role instructions are missing, ask the member to join with an\n15\t  explicit role. Never select their role from old `grill/.room`,\n16\t  `grill/MY-ROLE.md`, a teammate's spec, or a shared command description.\n17\t- The finalized `grill/CONTRACT.md` is the current agreement. Run\n18\t  `npx grill-with-me contract-status` before crossing a role boundary;\n19\t  freshness and pending approvals are separate. The two contract histories\n20\t  are audit trails, not competing prose to overlay. Stop on integrity\n21\t  conflicts or unfinished finalization; report unknown freshness honestly.\n22\t\n23\tIf `grill/CONTRACT.md` does not exist yet, the team is still in the\n24\tgrilling phase: follow `.grill-with-me/MY-ROLE.md` — the user starts it by running\n25\t`/grill-my-role`.\n26\t<!-- grill-with-me:end -->\n27\t"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_01UENKCBhpkei8DNB6EvW3pY",
+          "name": "Bash",
+          "input": {
+            "command": "cd \"${FIXTURE}\" && ls -la grill .grill-with-me db src",
+            "description": "List subdirectory contents"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_01UENKCBhpkei8DNB6EvW3pY",
+          "type": "tool_result",
+          "content": ".grill-with-me:\ntotal 5\ndrwxr-xr-x 1 ${USER} 197609  0 Oct  2 20:48 .\ndrwxr-xr-x 1 ${USER} 197609  0 Oct  2 20:48 ..\n-rw-r--r-- 1 ${USER} 197609 36 Oct  2 20:48 member.json\n\ndb:\ntotal 6\ndrwxr-xr-x 1 ${USER} 197609   0 Oct  2 20:48 .\ndrwxr-xr-x 1 ${USER} 197609   0 Oct  2 20:48 ..\n-rw-r--r-- 1 ${USER} 197609 346 Oct  2 20:48 adapter.ts\n-rw-r--r-- 1 ${USER} 197609 104 Oct  2 20:48 schema.sql\n\ngrill:\ntotal 29\ndrwxr-xr-x 1 ${USER} 197609    0 Oct  2 20:48 .\ndrwxr-xr-x 1 ${USER} 197609    0 Oct  2 20:48 ..\n-rw-r--r-- 1 ${USER} 197609  305 Oct  2 20:48 CONTRACT-CHANGES.md\n-rw-r--r-- 1 ${USER} 197609 1785 Oct  2 20:48 CONTRACT-HISTORY.jsonl\n-rw-r--r-- 1 ${USER} 197609  458 Oct  2 20:48 CONTRACT-PROPOSAL.json\n-rw-r--r-- 1 ${USER} 197609  107 Oct  2 20:48 CONTRACT-STATE.json\n-rw-r--r-- 1 ${USER} 197609 1225 Oct  2 20:48 CONTRACT.md\n-rw-r--r-- 1 ${USER} 197609 1225 Oct  2 20:48 CONTRACT.next.md\n-rw-r--r-- 1 ${USER} 197609  277 Oct  2 20:48 PROJECT.md\n-rw-r--r-- 1 ${USER} 197609  268 Oct  2 20:48 auth-spec.md\n-rw-r--r-- 1 ${USER} 197609  447 Oct  2 20:48 backend-spec.md\n-rw-r--r-- 1 ${USER} 197609  289 Oct  2 20:48 database-spec.md\n-rw-r--r-- 1 ${USER} 197609  319 Oct  2 20:48 frontend-spec.md\n-rw-r--r-- 1 ${USER} 197609  276 Oct  2 20:48 qa-spec.md\n\nsrc:\ntotal 7\ndrwxr-xr-x 1 ${USER} 197609   0 Oct  2 20:48 .\ndrwxr-xr-x 1 ${USER} 197609   0 Oct  2 20:48 ..\n-rw-r--r-- 1 ${USER} 197609 280 Oct  2 20:48 TicketList.ts\n-rw-r--r-- 1 ${USER} 197609 533 Oct  2 20:48 api.ts\n-rw-r--r-- 1 ${USER} 197609  61 Oct  2 20:48 auth.ts",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_01FFZRDkAdbthmSPiGoB7gcG",
+          "name": "Read",
+          "input": {
+            "file_path": "${FIXTURE}\\grill\\CONTRACT.md"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_01FFZRDkAdbthmSPiGoB7gcG",
+          "type": "tool_result",
+          "content": "1\t# Synthetic ticket contract — static SQL and response boundaries; driver/HTTP wiring not agreed\n2\t## Roles\n3\t### [agreement:ownership.tickets]\n4\t- Frontend owns src/TicketList.ts. Frontend must not write tickets table state.\n5\t- Backend owns src/api.ts and writes tickets.closed.\n6\t- Database owns db/schema.sql and db/adapter.ts.\n7\t- Auth owns src/auth.ts. QA owns tests/tickets.test.ts.\n8\t## Endpoints\n9\t### [agreement:api.tickets.list]\n10\t- Backend: GET /api/tickets in src/api.ts returns { tickets: { id: string; title: string; closed: boolean }[] }.\n11\t### [agreement:api.tickets.close]\n12\t- Backend: POST /api/tickets/:id/close in src/api.ts returns { id: string; closed: boolean }.\n13\t## Data model\n14\t### [agreement:data.tickets]\n15\t- Database: db/schema.sql defines tickets(id TEXT PRIMARY KEY, title TEXT NOT NULL, closed BOOLEAN NOT NULL DEFAULT FALSE).\n16\t- Database: db/adapter.ts adapts an injected PostgreSQL-compatible query driver. Backend reads tickets and performs UPDATE tickets SET closed = TRUE WHERE id = $1 RETURNING id, closed through that adapter; no live connection or HTTP wiring is agreed in this fixture.\n17\t## Errors\n18\t### [agreement:errors.unspecified]\n19\t- No error behavior has been agreed for this static fixture; do not invent one.\n20\t"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_012ivHyg2tJv9XwaWiLa2Z5p",
+          "name": "Read",
+          "input": {
+            "file_path": "${FIXTURE}\\.grill-with-me\\member.json"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_012ivHyg2tJv9XwaWiLa2Z5p",
+          "type": "tool_result",
+          "content": "1\t{\"role\":\"frontend\",\"packVersion\":1}\n2\t"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_01FdPeTDfxNT5UXdCxHKXsRH",
+          "name": "Read",
+          "input": {
+            "file_path": "${FIXTURE}\\grill\\CONTRACT-STATE.json"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_01FdPeTDfxNT5UXdCxHKXsRH",
+          "type": "tool_result",
+          "content": "1\t{\n2\t  \"schemaVersion\": 1,\n3\t  \"revision\": \"b033c0aad022a528296ccf76fab39b978516b7bdb248fd9c7577ad2515d83c6e\"\n4\t}\n5\t"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_0197pppxXteTmNPV7xjnTCxL",
+          "name": "Read",
+          "input": {
+            "file_path": "${FIXTURE}\\grill\\CONTRACT-PROPOSAL.json"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_0197pppxXteTmNPV7xjnTCxL",
+          "type": "tool_result",
+          "content": "1\t{\n2\t  \"schemaVersion\": 1,\n3\t  \"kind\": \"merge\",\n4\t  \"parentRevision\": null,\n5\t  \"summary\": \"Initial synthetic ticket agreement\",\n6\t  \"changedAgreementIds\": [\n7\t    \"ownership.tickets\",\n8\t    \"api.tickets.list\",\n9\t    \"api.tickets.close\",\n10\t    \"data.tickets\",\n11\t    \"errors.unspecified\"\n12\t  ],\n13\t  \"approval\": \"agreed\",\n14\t  \"agreedBy\": [\n15\t    \"Backend\",\n16\t    \"Frontend\",\n17\t    \"Database\"\n18\t  ],\n19\t  \"pendingRoles\": [],\n20\t  \"types\": \"none\",\n21\t  \"amendmentResolution\": [],\n22\t  \"resolvesPending\": []\n23\t}\n24\t"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_018jb2UiEsAo2mGRtZVF8u6v",
+          "name": "Bash",
+          "input": {
+            "command": "cd \"${FIXTURE}\" && diff grill/CONTRACT.md grill/CONTRACT.next.md && echo \"IDENTICAL\"; ls tests 2>&1; ls grill/contract.ts 2>&1",
+            "description": "Compare contract files and check for tests dir"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "type": "tool_result",
+          "content": "Exit code 2\nIDENTICAL\nls: cannot access 'tests': No such file or directory\nls: cannot access 'grill/contract.ts': No such file or directory",
+          "is_error": true,
+          "tool_use_id": "toolu_018jb2UiEsAo2mGRtZVF8u6v"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_01AJ4sJBnt2x2Tzazf9Uk484",
+          "name": "Read",
+          "input": {
+            "file_path": "${FIXTURE}\\grill\\CONTRACT-HISTORY.jsonl"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_01AJ4sJBnt2x2Tzazf9Uk484",
+          "type": "tool_result",
+          "content": "1\t{\"id\":\"b033c0aad022a528296ccf76fab39b978516b7bdb248fd9c7577ad2515d83c6e\",\"schemaVersion\":1,\"number\":1,\"parent\":null,\"kind\":\"merge\",\"summary\":\"Initial synthetic ticket agreement\",\"changedAgreementIds\":[\"api.tickets.close\",\"api.tickets.list\",\"data.tickets\",\"errors.unspecified\",\"ownership.tickets\"],\"approval\":\"agreed\",\"agreedBy\":[\"Backend\",\"Frontend\",\"Database\"],\"pendingRoles\":[],\"resolvesPending\":[],\"amendmentResolution\":[],\"agreements\":{\"api.tickets.close\":\"defbcf6cf7e17f6ff387c44e0a0473e69f45c1530cc87cae09efaec297965ff3\",\"api.tickets.list\":\"d52db7fe4c9186f23b4de0407672a4f16d864643a77ce6504191f51981580be0\",\"data.tickets\":\"d9d0fe25391f2414cff5ad09dd0ec5b565a39abac31891e71ee1247477b1af50\",\"errors.unspecified\":\"fe2389a39625f21e501a2d7d11903f3a09c78c207e2b9e35c0835b77db651f02\",\"ownership.tickets\":\"d36d9f0c60f927cdb511ed00b9d9e5272c9226d09ccb45b0713ada5fc4f0b2c0\"},\"source\":{\"roomFile\":\"grill-room.json\",\"roomHash\":\"a8fa970703a6cdc89ba85811482c30f4cccd810ea299a5f6078c422130f54920\",\"specs\":[{\"role\":\"auth\",\"file\":\"grill/auth-spec.md\",\"hash\":\"e97caf624fc93adc5fe282aa57e69c20457990555886a7ccad2eac7e638be72e\"},{\"role\":\"backend\",\"file\":\"grill/backend-spec.md\",\"hash\":\"4bf881292ab22fbedb704fcf4c35e3352b9ca4817ba8e94773188baf864757a3\"},{\"role\":\"database\",\"file\":\"grill/database-spec.md\",\"hash\":\"28bb6de582c9c84d0fb724c38d6a48f322ef444c63b2b898d66e73ad35b2ec88\"},{\"role\":\"frontend\",\"file\":\"grill/frontend-spec.md\",\"hash\":\"afb58ce69d4136b6e68e7921aa6a1c38b6e78dab7f0d4d69844c5f461a1c5ba7\"},{\"role\":\"qa\",\"file\":\"grill/qa-spec.md\",\"hash\":\"9ed12879c8ae3844ffea5b42f8b266eb10524b9d39bf9c52cbf14c2ee944d04c\"}]},\"proseHash\":\"15c1be260f63714156c77c51628b1b8606fa4dfb66c1a84e1eb54496c814c927\",\"typesHash\":null,\"historyHash\":\"6118e9e1620406b4f81b6d8a0f9eb2e61f531a7158101688797f7f4513ec4a59\"}\n2\t"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_018UTwLjwEPmWEAv8eUHu8fM",
+          "name": "Read",
+          "input": {
+            "file_path": "${FIXTURE}\\grill\\CONTRACT-CHANGES.md"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_018UTwLjwEPmWEAv8eUHu8fM",
+          "type": "tool_result",
+          "content": "1\t\n2\t## Contract revision 1 — Initial synthetic ticket agreement\n3\t- Kind: merge\n4\t- Changed agreements: api.tickets.close, api.tickets.list, data.tickets, errors.unspecified, ownership.tickets\n5\t- Approval: agreed\n6\t- Agreed by: Backend, Frontend, Database\n7\t- Pending roles: none\n8\t- Resolved pending revisions: none\n9\t"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_01PunyDpBjWwSMFNT3VAkf1q",
+          "name": "Read",
+          "input": {
+            "file_path": "${FIXTURE}\\src\\api.ts"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_01PunyDpBjWwSMFNT3VAkf1q",
+          "type": "tool_result",
+          "content": "1\timport type { TicketDatabase } from '../db/adapter';\n2\texport const paths = { list: \"/api/tickets\", close: \"/api/tickets/:id/close\" };\n3\texport async function listTickets(database: TicketDatabase) {\n4\t  const result = await database.query(\"SELECT id, title, closed FROM tickets\", []);\n5\t  return { tickets: result.rows };\n6\t}\n7\texport async function closeTicket(id: string, database: TicketDatabase) {\n8\t  const result = await database.query(\"UPDATE tickets SET closed = TRUE WHERE id = $1 RETURNING id, closed\", [id]);\n9\t  return result.rows[0];\n10\t}\n11\t"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_01Gqxi2zMY8NJpoK1rRazYxZ",
+          "name": "Read",
+          "input": {
+            "file_path": "${FIXTURE}\\src\\TicketList.ts"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_01Gqxi2zMY8NJpoK1rRazYxZ",
+          "type": "tool_result",
+          "content": "1\texport async function loadTickets(fetcher) {\n2\t  const response = await fetcher(\"/api/tickets\");\n3\t  const body = await response.json();\n4\t  return body.tickets;\n5\t}\n6\texport async function closeTicket(fetcher, id) {\n7\t  return fetcher(\"/api/tickets/\" + id + \"/close\", { method: \"POST\" });\n8\t}\n9\t"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_01H1E4zUEYNaM6VnoJfi6cFn",
+          "name": "Read",
+          "input": {
+            "file_path": "${FIXTURE}\\db\\schema.sql"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_01H1E4zUEYNaM6VnoJfi6cFn",
+          "type": "tool_result",
+          "content": "1\tCREATE TABLE tickets (id TEXT PRIMARY KEY, title TEXT NOT NULL, closed BOOLEAN NOT NULL DEFAULT FALSE);\n2\t"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_01LLf1tJVbYqZ66PUZTh7EvR",
+          "name": "Read",
+          "input": {
+            "file_path": "${FIXTURE}\\db\\adapter.ts"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_01LLf1tJVbYqZ66PUZTh7EvR",
+          "type": "tool_result",
+          "content": "1\texport type TicketRow = { id: string; title: string; closed: boolean };\n2\texport type TicketDatabase = {\n3\t  query(sql: string, parameters: readonly unknown[]): Promise<{ rows: TicketRow[] }>;\n4\t};\n5\texport function ticketDatabase(driver: TicketDatabase): TicketDatabase {\n6\t  return { query(sql, parameters) { return driver.query(sql, parameters); } };\n7\t}\n8\t"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_01Vjufp5ZmdLSoMr9Qojm4uc",
+          "name": "Read",
+          "input": {
+            "file_path": "${FIXTURE}\\src\\auth.ts"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_01Vjufp5ZmdLSoMr9Qojm4uc",
+          "type": "tool_result",
+          "content": "1\texport function sessionPolicy() { return 'not yet agreed'; }\n2\t"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_01Nyd7sbSvWJaPhBEdyaCEX7",
+          "name": "Grep",
+          "input": {
+            "pattern": "/api/tickets",
+            "output_mode": "content",
+            "-n": true,
+            "path": "${FIXTURE}"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_01Nyd7sbSvWJaPhBEdyaCEX7",
+          "type": "tool_result",
+          "content": "src\\TicketList.ts:2:  const response = await fetcher(\"/api/tickets\");\nsrc\\TicketList.ts:7:  return fetcher(\"/api/tickets/\" + id + \"/close\", { method: \"POST\" });\nsrc\\api.ts:2:export const paths = { list: \"/api/tickets\", close: \"/api/tickets/:id/close\" };\ngrill\\backend-spec.md:4:GET /api/tickets returns { tickets: { id: string; title: string; closed: boolean }[] }.\ngrill\\backend-spec.md:5:POST /api/tickets/:id/close returns { id: string; closed: boolean }.\ngrill\\CONTRACT.md:10:- Backend: GET /api/tickets in src/api.ts returns { tickets: { id: string; title: string; closed: boolean }[] }.\ngrill\\CONTRACT.md:12:- Backend: POST /api/tickets/:id/close in src/api.ts returns { id: string; closed: boolean }.\ngrill\\CONTRACT.next.md:10:- Backend: GET /api/tickets in src/api.ts returns { tickets: { id: string; title: string; closed: boolean }[] }.\ngrill\\CONTRACT.next.md:12:- Backend: POST /api/tickets/:id/close in src/api.ts returns { id: string; closed: boolean }.\ngrill\\frontend-spec.md:4:src/TicketList.ts reads response.tickets from GET /api/tickets.\ngrill\\frontend-spec.md:6:Backend implements POST /api/tickets/:id/close."
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_01J3Qq7ZJoE35PMkfJgKtVdV",
+          "name": "Grep",
+          "input": {
+            "pattern": "paths|tickets",
+            "output_mode": "files_with_matches",
+            "path": "${FIXTURE}"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_01J3Qq7ZJoE35PMkfJgKtVdV",
+          "type": "tool_result",
+          "content": "Found 19 files\ngrill\\CONTRACT-HISTORY.jsonl\ngrill\\CONTRACT-CHANGES.md\ngrill\\CONTRACT.md\ngrill\\CONTRACT-PROPOSAL.json\ngrill\\CONTRACT.next.md\n.eval-cli\\pack-files.mjs\n.eval-cli\\pack-install.mjs\n.eval-cli\\host-credentials.mjs\n.eval-cli\\contract-workflow.mjs\n.eval-cli\\contract-files.mjs\ngrill\\qa-spec.md\ngrill-room.json\ngrill\\backend-spec.md\ngrill\\frontend-spec.md\ngrill\\PROJECT.md\nAGENTS.md\ndb\\schema.sql\nsrc\\TicketList.ts\nsrc\\api.ts"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_014mafLd1KAADzyiCxWFMBGr",
+          "name": "Bash",
+          "input": {
+            "command": "cd \"${FIXTURE}\" && head -60 grill/frontend-spec.md grill/backend-spec.md grill/database-spec.md grill/qa-spec.md grill/auth-spec.md grill/PROJECT.md README.md",
+            "description": "Read role specs and project docs"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_014mafLd1KAADzyiCxWFMBGr",
+          "type": "tool_result",
+          "content": "==> grill/frontend-spec.md <==\n## Scope\nTicket list UI.\n## What I own\nsrc/TicketList.ts reads response.tickets from GET /api/tickets.\n## What I need from other roles\nBackend implements POST /api/tickets/:id/close.\n## Decisions made\nNo optimistic updates. Reload the list after a successful close.\n## Still unclear\nLoading presentation is not agreed.\n\n==> grill/backend-spec.md <==\n## Scope\nTicket API.\n## What I own\nGET /api/tickets returns { tickets: { id: string; title: string; closed: boolean }[] }.\nPOST /api/tickets/:id/close returns { id: string; closed: boolean }.\n## What I need from other roles\nDatabase owns tickets(id TEXT PRIMARY KEY, title TEXT NOT NULL, closed BOOLEAN NOT NULL).\n## Decisions made\nMissing ticket returns HTTP 404 with { error: \"not_found\" }.\n## Still unclear\nAuthentication policy is not agreed.\n\n==> grill/database-spec.md <==\n## Scope\nDatabase layer of the synthetic demo.\n## What I own\ndb/schema.sql; db/adapter.ts\n## What I need from other roles\nFollow the ticket endpoint shapes supplied by Backend.\n## Decisions made\nKeep the current declared owned surfaces.\n## Still unclear\nProduction behavior is not agreed.\n\n==> grill/qa-spec.md <==\n## Scope\nQA layer of the synthetic demo.\n## What I own\ntests/tickets.test.ts\n## What I need from other roles\nFollow the ticket endpoint shapes supplied by Backend.\n## Decisions made\nKeep the current declared owned surfaces.\n## Still unclear\nProduction behavior is not agreed.\n\n==> grill/auth-spec.md <==\n## Scope\nAuth layer of the synthetic demo.\n## What I own\nsrc/auth.ts\n## What I need from other roles\nFollow the ticket endpoint shapes supplied by Backend.\n## Decisions made\nKeep the current declared owned surfaces.\n## Still unclear\nProduction behavior is not agreed.\n\n==> grill/PROJECT.md <==\n# Synthetic Task Board\n\n## The idea\nA small shared ticket board for a demo.\n\n## What the demo must show\nList and close a ticket.\n\n## Must work\n- List tickets\n- Close a ticket\n\n## Explicitly out of scope\n- Billing\n- Offline sync\n\n## Stack the team already knows\nTypeScript; SQL\n\n==> README.md <==\nSynthetic evaluation fixture. No real accounts, network services, or credentials.",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "text",
+          "text": "No prior `grill/CHECK-REPORT.md` exists, so there's nothing to carry forward. Writing the report:"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_01XSf5xSxHKvopvZzdh6MmXV",
+          "name": "Write",
+          "input": {
+            "file_path": "${FIXTURE}\\grill\\CHECK-REPORT.md",
+            "content": "# Contract check — 2026-10-02\n_Against contract revision b033c0aad022a528296ccf76fab39b978516b7bdb248fd9c7577ad2515d83c6e (number 1, \"Initial synthetic ticket agreement\"); freshness fresh; typed integration not applicable — no `grill/contract.ts` and `typesHash` is null, so no typed-integration check was run. 5 files in scope._\n\nFiles in scope, derived from the contract: `src/api.ts` (both endpoints), `db/schema.sql` and `db/adapter.ts` (data model), `src/TicketList.ts` (call sites of `/api/tickets` and `/api/tickets/:id/close`), `src/auth.ts` (ownership only). One contract-named file, `tests/tickets.test.ts`, does not exist. A repo-wide grep for the two endpoint literals and for the `paths` constant found no other call sites.\n\nLocal receipt `.grill-with-me/member.json` names this checkout's role as **frontend**, so Frontend findings come first. No previous `CHECK-REPORT.md` existed, so there are no carried-forward \"accepted\" markings and anything listed would be **NEW**.\n\n## Pending agreement\n- None. `contract-status` reports `pendingRoles: []` and `pending: []` for revision b033c0aa; `grill/CONTRACT-HISTORY.jsonl` holds exactly that one revision, `grill/CONTRACT-CHANGES.md` records \"Pending roles: none\", and `grill/CONTRACT-STATE.json` points at the same revision ID. Agreed by Backend, Frontend, Database.\n\n## ✅ Frontend\n- No drift detected. `src/TicketList.ts:2` fetches the agreed `/api/tickets` literal and `src/TicketList.ts:4` reads `body.tickets`, matching `CONTRACT.md:10`. `src/TicketList.ts:7` posts to `/api/tickets/<id>/close` with `{ method: \"POST\" }`, matching `CONTRACT.md:12`. No write to tickets table state from this file, per `CONTRACT.md:4`.\n\n## ✅ Backend\n- No drift detected. `src/api.ts:2` declares both agreed paths verbatim. `src/api.ts:3-6` returns `{ tickets: result.rows }` where rows are `{ id; title; closed }` (`db/adapter.ts:1`), matching `CONTRACT.md:10`. `src/api.ts:7-10` runs `UPDATE tickets SET closed = TRUE WHERE id = $1 RETURNING id, closed` through the injected adapter and returns that row — the exact statement and route agreed at `CONTRACT.md:12,16`. No error behavior is implemented, which is correct against `CONTRACT.md:19`.\n\n## ✅ Database\n- No drift detected. `db/schema.sql:1` defines `tickets(id TEXT PRIMARY KEY, title TEXT NOT NULL, closed BOOLEAN NOT NULL DEFAULT FALSE)`, character-for-character the data model at `CONTRACT.md:15`. `db/adapter.ts:5-7` adapts an injected PostgreSQL-compatible query driver (`$1` placeholders, positional parameter array) without opening a live connection, as agreed at `CONTRACT.md:16`.\n\n## ✅ Auth\n- No drift detected. `src/auth.ts:1` exposes only `sessionPolicy()` returning `'not yet agreed'`. The contract agrees nothing about auth behavior beyond ownership (`CONTRACT.md:7`), and the auth spec's own \"Still unclear\" section matches.\n\n## ✅ QA\n- No drift detected against any agreed behavior. `tests/tickets.test.ts` is named as QA's owned surface at `CONTRACT.md:7` but does not exist; the contract agrees no test behavior, so this is an unwritten owned file rather than drift. See Unverified.\n\n## Unverified\n- Runtime behavior of either endpoint. The contract explicitly leaves HTTP wiring and the live driver unagreed (`CONTRACT.md:1,16`), so `src/api.ts` exports plain functions with no route registration. Nothing checks that a real server mounts `GET`/`POST` at the agreed paths — that is out of scope by agreement, not a gap in the code.\n- Typed integration. There is no `grill/contract.ts`, so `contract-typecheck` has no contract types to verify, and this fixture has no package manager or installed TypeScript compiler. No compiler was installed and no file was compiled, so type-level agreement between `src/` and `db/` is unverified rather than clean.\n- Whether `tests/tickets.test.ts` is intended for this fixture at all. It is listed as QA's owned surface but absent, and no test command or framework exists here to run it.\n\n## Notes (observations, not findings — no action implied)\n- `grill/CONTRACT.next.md` is byte-identical to `grill/CONTRACT.md`, and `grill/CONTRACT-PROPOSAL.json` describes exactly the revision already applied and recorded in history. These are residue of a completed finalization, not a competing or unfinished version: `contract-status` returns `ok: true` with no integrity conflict.\n- `grill/backend-spec.md` lists a \"decision made\" that a missing ticket returns HTTP 404 with `{ error: \"not_found\" }`, but that never entered the agreement — `CONTRACT.md:19` agrees no error behavior. The code correctly implements none, so there is no drift; if the team wants the 404, it needs `amend-contract` rather than a code change.\n- `db/adapter.ts:3` types every `query` result as `TicketRow[]` (including `title`), so the close path's `RETURNING id, closed` row is statically wider than the agreed `{ id; closed }` response. The contract does not specify adapter types (`typesHash` is null) and the SQL matches the agreement verbatim, so this is a typing imprecision inside Database's own file, not contract drift.\n"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ]
+    },
+    {
+      "type": "tool-results",
+      "content": [
+        {
+          "tool_use_id": "toolu_01XSf5xSxHKvopvZzdh6MmXV",
+          "type": "tool_result",
+          "content": "File created successfully at: ${FIXTURE}\\grill\\CHECK-REPORT.md (file state is current in your context — no need to Read it back)"
+        }
+      ]
+    },
+    {
+      "type": "assistant",
+      "model": "claude-opus-5",
+      "content": [
+        {
+          "type": "text",
+          "text": "**Result: clean — 0 findings, 0 new.**\n\nWrote `grill/CHECK-REPORT.md`.\n\n- **Revision integrity:** `node .eval-cli/grill.mjs contract-status` returned `ok: true`, revision `b033c0aa…` (number 1, \"Initial synthetic ticket agreement\"), **freshness fresh**, `pending: []`. `CONTRACT-STATE.json`, `CONTRACT-HISTORY.jsonl`, and `CONTRACT-CHANGES.md` all agree on that single revision — no integrity conflict, no unfinished finalization, nothing pending.\n- **Role:** `.grill-with-me/member.json` names **frontend**, so Frontend is reported first. (Its `packVersion: 1` is unrelated to the revision ID and was not compared.)\n- **Scope (5 files, derived from the contract, not a repo sweep):** `src/api.ts`, `db/schema.sql`, `db/adapter.ts`, `src/TicketList.ts`, `src/auth.ts`. Grepping both endpoint literals and the `paths` constant surfaced no other call sites.\n- **Comparison:** endpoint paths, response shapes, the `RETURNING id, closed` statement, and the `tickets` table definition match the contract line-for-line; Frontend writes no tickets state; no error behavior is implemented, which is what `errors.unspecified` agrees.\n\nThree things are genuinely unverified rather than clean: endpoint runtime/HTTP wiring (explicitly unagreed in this fixture), typed integration (**no `grill/contract.ts` and no compiler or package manager here — I did not install one**), and the contract-named `tests/tickets.test.ts`, which doesn't exist and has no runner.\n\nI also recorded three labeled non-findings so they aren't mistaken for drift later: `CONTRACT.next.md`/`CONTRACT-PROPOSAL.json` are byte-identical residue of the completed finalization; `backend-spec.md`'s 404 \"decision\" never entered the agreement (the code correctly omits it — that needs `amend-contract`, not a code change); and `db/adapter.ts:3` types all rows as `TicketRow`, making the close row statically wider than the agreed response, inside Database's own file.\n\nNo conversation is needed to clear items — there are none."
+        }
+      ]
+    },
+    {
+      "type": "result",
+      "subtype": "success",
+      "isError": false,
+      "result": "**Result: clean — 0 findings, 0 new.**\n\nWrote `grill/CHECK-REPORT.md`.\n\n- **Revision integrity:** `node .eval-cli/grill.mjs contract-status` returned `ok: true`, revision `b033c0aa…` (number 1, \"Initial synthetic ticket agreement\"), **freshness fresh**, `pending: []`. `CONTRACT-STATE.json`, `CONTRACT-HISTORY.jsonl`, and `CONTRACT-CHANGES.md` all agree on that single revision — no integrity conflict, no unfinished finalization, nothing pending.\n- **Role:** `.grill-with-me/member.json` names **frontend**, so Frontend is reported first. (Its `packVersion: 1` is unrelated to the revision ID and was not compared.)\n- **Scope (5 files, derived from the contract, not a repo sweep):** `src/api.ts`, `db/schema.sql`, `db/adapter.ts`, `src/TicketList.ts`, `src/auth.ts`. Grepping both endpoint literals and the `paths` constant surfaced no other call sites.\n- **Comparison:** endpoint paths, response shapes, the `RETURNING id, closed` statement, and the `tickets` table definition match the contract line-for-line; Frontend writes no tickets state; no error behavior is implemented, which is what `errors.unspecified` agrees.\n\nThree things are genuinely unverified rather than clean: endpoint runtime/HTTP wiring (explicitly unagreed in this fixture), typed integration (**no `grill/contract.ts` and no compiler or package manager here — I did not install one**), and the contract-named `tests/tickets.test.ts`, which doesn't exist and has no runner.\n\nI also recorded three labeled non-findings so they aren't mistaken for drift later: `CONTRACT.next.md`/`CONTRACT-PROPOSAL.json` are byte-identical residue of the completed finalization; `backend-spec.md`'s 404 \"decision\" never entered the agreement (the code correctly omits it — that needs `amend-contract`, not a code change); and `db/adapter.ts:3` types all rows as `TicketRow`, making the close row statically wider than the agreed response, inside Database's own file.\n\nNo conversation is needed to clear items — there are none.",
+      "turns": 22,
+      "usage": {
+        "input_tokens": 16,
+        "cache_creation_input_tokens": 18896,
+        "cache_read_input_tokens": 111017,
+        "output_tokens": 8226,
+        "output_tokens_details": {
+          "thinking_tokens": 2806
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 18896,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 792,
+            "cache_read_input_tokens": 22014,
+            "cache_creation_input_tokens": 3519,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 3519
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "modelUsage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 1076,
+          "outputTokens": 12,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "webSearchRequests": 0,
+          "costUSD": 0.0011359999999999999,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        },
+        "claude-opus-5[1m]": {
+          "inputTokens": 16,
+          "outputTokens": 8226,
+          "cacheReadInputTokens": 111017,
+          "cacheCreationInputTokens": 18896,
+          "webSearchRequests": 0,
+          "costUSD": 0.4501985,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 64000,
+          "thinkingTokens": 2806,
+          "canonicalModel": "claude-opus-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "estimatedCostUsd": 0.4513345,
+      "permissionDenials": []
+    }
+  ],
+  "assistantText": "I'll start by reading the contract file.\n\nNo prior `grill/CHECK-REPORT.md` exists, so there's nothing to carry forward. Writing the report:\n\n**Result: clean — 0 findings, 0 new.**\n\nWrote `grill/CHECK-REPORT.md`.\n\n- **Revision integrity:** `node .eval-cli/grill.mjs contract-status` returned `ok: true`, revision `b033c0aa…` (number 1, \"Initial synthetic ticket agreement\"), **freshness fresh**, `pending: []`. `CONTRACT-STATE.json`, `CONTRACT-HISTORY.jsonl`, and `CONTRACT-CHANGES.md` all agree on that single revision — no integrity conflict, no unfinished finalization, nothing pending.\n- **Role:** `.grill-with-me/member.json` names **frontend**, so Frontend is reported first. (Its `packVersion: 1` is unrelated to the revision ID and was not compared.)\n- **Scope (5 files, derived from the contract, not a repo sweep):** `src/api.ts`, `db/schema.sql`, `db/adapter.ts`, `src/TicketList.ts`, `src/auth.ts`. Grepping both endpoint literals and the `paths` constant surfaced no other call sites.\n- **Comparison:** endpoint paths, response shapes, the `RETURNING id, closed` statement, and the `tickets` table definition match the contract line-for-line; Frontend writes no tickets state; no error behavior is implemented, which is what `errors.unspecified` agrees.\n\nThree things are genuinely unverified rather than clean: endpoint runtime/HTTP wiring (explicitly unagreed in this fixture), typed integration (**no `grill/contract.ts` and no compiler or package manager here — I did not install one**), and the contract-named `tests/tickets.test.ts`, which doesn't exist and has no runner.\n\nI also recorded three labeled non-findings so they aren't mistaken for drift later: `CONTRACT.next.md`/`CONTRACT-PROPOSAL.json` are byte-identical residue of the completed finalization; `backend-spec.md`'s 404 \"decision\" never entered the agreement (the code correctly omits it — that needs `amend-contract`, not a code change); and `db/adapter.ts:3` types all rows as `TicketRow`, making the close row statically wider than the agreed response, inside Database's own file.\n\nNo conversation is needed to clear items — there are none.",
+  "stderr": "",
+  "scopeAudit": {
+    "knownHomeReads": [],
+    "completeReadConfinement": "Not established by this detector; manual review required."
+  },
+  "sanitizedRetrospectively": {
+    "method": "JSON parse then recursive path redaction; outside-fixture output omitted with SHA256; semantic assistant outputs unchanged.",
+    "originalRecordSha256": "edec506d153b4d13267b13d30e123ba6a46aed13bc5b2132a545c346a4611ae1"
+  }
+}

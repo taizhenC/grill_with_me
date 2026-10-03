@@ -1,0 +1,5 @@
+{
+  "status": "setup-only; excluded from valid-member release gates",
+  "fixed": "Room is now validated by actual schema and downloaded member identity before installation.",
+  "reason": "Synthetic fixture had invalid room mode normal and missing r_ key prefix; missing full schema validation before installation. Remaining-member batches were deliberately terminated after review to conserve quota."
+}

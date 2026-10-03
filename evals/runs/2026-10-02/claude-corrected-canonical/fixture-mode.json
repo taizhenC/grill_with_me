@@ -1,0 +1,7 @@
+{
+  "classification": "Narrow canonical drift projection, not a full installed-member-receipt matrix",
+  "reason": "clean-baseline and clean-amendment used a local selector projection containing role/packVersion only; it does not satisfy readInstallReceipt's full V2 envelope. The canonical contracts were genuinely finalized and fresh, but these two runs do not prove the installed-receipt identity path.",
+  "noLocalRole": "clean-no-local-role intentionally has no local receipt and tests ignoring obsolete shared selector projections; the frozen legacy .room lacks roomKey and is not a complete valid legacy envelope. Its artifact is accurate within that narrow projection but its invocation timed out. Future fixtures add the valid legacy key; no model rerun replaces this record.",
+  "followUp": "claude-installed-receipt-and-seed was built through actual renderPack, planInstall, executeInstall and readInstallReceipt and separately validates the full installed-receipt path.",
+  "policy": "Preserve original traces and source hashes; do not blend runs across fixture versions into a complete clean-matrix gate."
+}
