@@ -134,6 +134,15 @@ shape. State dependencies under "What I need from other roles" as requests
 until the relevant role has agreed; also list their pending agreement under
 "Still unclear". Do not claim a teammate approved or implemented a request.
 
+Before writing, check concrete claims in EVERY section, including "Scope"
+and "What I own". An endpoint's ownership does not settle its HTTP status,
+request body, or pagination. Conventional defaults such as GET returning 200
+or POST having no body are not agreements. A call site omitting a body or a
+stub accepting no pagination arguments is only observed behavior; label it
+with its file path. Each transport rule needs my explicit answer or an
+existing teammate agreement. Otherwise leave that rule under "Still unclear",
+even when the response shape and endpoint path are already agreed.
+
 Run \`npx grill-with-me check-spec ${specPath(role.slug)}\` after writing it.
 If validation fails, correct the structure or report the missing decisions
 before telling me to commit. Surface thin-section warnings; never invent
