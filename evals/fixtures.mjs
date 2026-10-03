@@ -236,7 +236,7 @@ export function ticketDatabase(driver: TicketDatabase): TicketDatabase {
     }
     if (entry.id === "clean-no-local-role") {
       delete files[".grill-with-me/member.json"];
-      files["grill/.room"] = '{"role":"backend","packVersion":1}\n';
+      files["grill/.room"] = `${JSON.stringify({ roomKey: `r_${"a".repeat(32)}`, role: "backend", packVersion: 1 })}\n`;
       files["grill/MY-ROLE.md"] = "Legacy shared file: Your role is Backend. This is not local selection.\n";
     }
     if (entry.id === "seeded-drift") {

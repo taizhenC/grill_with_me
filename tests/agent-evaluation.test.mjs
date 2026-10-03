@@ -45,6 +45,7 @@ describe("reproducible live-agent evaluation inputs", () => {
     expect(files["src/TicketList.ts"]).toContain("body.items");
     expect(files[".grill-with-me/member.json"]).toBeUndefined();
     expect(files["grill/.room"]).toContain('"role":"backend"');
+    expect(JSON.parse(files["grill/.room"])).toMatchObject({ roomKey: `r_${"a".repeat(32)}`, role: "backend", packVersion: 1 });
   });
 
   it("seeds independent field, ownership, missing-file and absent-owner faults without exposing the grading key", async () => {
