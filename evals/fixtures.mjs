@@ -19,13 +19,13 @@ async function renderer() {
   return import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
 }
 
-async function validatedRoom() {
+async function validatedRoom(input) {
   const source = await readFile(join(repository, "lib/schema.ts"), "utf8");
   const javascript = ts.transpileModule(source, { compilerOptions: {
     module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022,
   } }).outputText.replace('from "zod"', `from ${JSON.stringify(import.meta.resolve("zod"))}`);
   const { parseGrillRoom } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
-  const result = parseGrillRoom(JSON.stringify({ schemaVersion: 1, project,
+  const result = parseGrillRoom(JSON.stringify(input ?? { schemaVersion: 1, project,
     roles: members.map(role => ({ ...role, description: `Own the ${role.name} layer of the synthetic ticket board.` })) }));
   if (!result.ok) throw new Error(`Invalid evaluation room: ${result.errors.join("; ")}`);
   return result.room;
@@ -96,12 +96,12 @@ const members = [
     required: ["tests/tickets.test.ts", "200", "404", "not_found"], unknown: ["Load", "browser", "message"] },
 ];
 
-const contract = `# Synthetic ticket contract
+const contract = `# Synthetic ticket contract — static SQL and response boundaries; driver/HTTP wiring not agreed
 ## Roles
 ### [agreement:ownership.tickets]
 - Frontend owns src/TicketList.ts. Frontend must not write tickets table state.
 - Backend owns src/api.ts and writes tickets.closed.
-- Database owns db/schema.sql.
+- Database owns db/schema.sql and db/adapter.ts.
 - Auth owns src/auth.ts. QA owns tests/tickets.test.ts.
 ## Endpoints
 ### [agreement:api.tickets.list]
@@ -111,6 +111,7 @@ const contract = `# Synthetic ticket contract
 ## Data model
 ### [agreement:data.tickets]
 - Database: db/schema.sql defines tickets(id TEXT PRIMARY KEY, title TEXT NOT NULL, closed BOOLEAN NOT NULL DEFAULT FALSE).
+- Database: db/adapter.ts adapts an injected PostgreSQL-compatible query driver. Backend reads tickets and performs UPDATE tickets SET closed = TRUE WHERE id = $1 RETURNING id, closed through that adapter; no live connection or HTTP wiring is agreed in this fixture.
 ## Errors
 ### [agreement:errors.unspecified]
 - No error behavior has been agreed for this static fixture; do not invent one.
@@ -176,7 +177,7 @@ export const cases = [
     { category: "ownership", role: "Frontend", evidence: "src/TicketList.ts:9", reason: "Writes tickets.closed owned by Backend." },
     { category: "missing implementation", role: "Backend", evidence: "grill/CONTRACT.md:14", reason: "src/archive.ts is absent." },
     { category: "absent role", role: "Payments", evidence: "grill/CONTRACT.md:16", reason: "Payments is assigned an endpoint but absent from Roles and member specs; report unverified ownership instead of inventing a teammate." },
-    { category: "amendment", role: "Backend", evidence: "src/api.ts:2", reason: "items matches the amendment and must not be reported as drift." },
+    { category: "amendment", role: "Backend", evidence: "src/api.ts:5", reason: "items matches the amendment and must not be reported as drift." },
   ] } },
 ];
 
@@ -202,6 +203,25 @@ export async function createFixture(caseId, directory) {
     for (const file of pack) files[file.path] = await readFile(join(directory, file.path), "utf8");
     files[".gitignore"] = await readFile(join(directory, ".gitignore"), "utf8");
   } else {
+    files["src/api.ts"] = `import type { TicketDatabase } from '../db/adapter';
+export const paths = { list: "/api/tickets", close: "/api/tickets/:id/close" };
+export async function listTickets(database: TicketDatabase) {
+  const result = await database.query("SELECT id, title, closed FROM tickets", []);
+  return { tickets: result.rows };
+}
+export async function closeTicket(id: string, database: TicketDatabase) {
+  const result = await database.query("UPDATE tickets SET closed = TRUE WHERE id = $1 RETURNING id, closed", [id]);
+  return result.rows[0];
+}
+`;
+    files["db/adapter.ts"] = `export type TicketRow = { id: string; title: string; closed: boolean };
+export type TicketDatabase = {
+  query(sql: string, parameters: readonly unknown[]): Promise<{ rows: TicketRow[] }>;
+};
+export function ticketDatabase(driver: TicketDatabase): TicketDatabase {
+  return { query(sql, parameters) { return driver.query(sql, parameters); } };
+}
+`;
     files["check-contract.md"] = await readFile(join(repository, "skills/check-contract/SKILL.md"), "utf8");
     files[".grill-with-me/member.json"] = '{"role":"frontend","packVersion":1}\n';
     if (entry.id !== "clean-baseline") {
@@ -231,6 +251,8 @@ process.exitCode = result.ok ? 0 : 1;
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, content);
   }
-  const revision = entry.kind === "drift" ? await finalizeFixture(directory, files, room, entry) : null;
+  const driftRoom = entry.kind === "drift" ? await validatedRoom({ ...room, roles: room.roles.map(role =>
+    role.slug === "database" ? { ...role, owns: [...role.owns, "db/adapter.ts"] } : role) }) : null;
+  const revision = entry.kind === "drift" ? await finalizeFixture(directory, files, driftRoom, entry) : null;
   return { entry, files, revision };
 }
