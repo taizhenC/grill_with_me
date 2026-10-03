@@ -1,0 +1,30 @@
+{
+  "reviewDateLocal": "2026-10-02",
+  "timezone": "America/New_York",
+  "baseMain": "224877ee3b7a1de1def43f11a0ba689606732c45",
+  "sourceHeadBeforeEvidenceCommits": "d62e950",
+  "runtime": "Node v24.21.0",
+  "focusedTests": {
+    "command": "node node_modules/vitest/vitest.mjs run tests/agent-evaluation.test.mjs tests/pack.test.ts tests/spec-format.test.ts",
+    "filesPassed": 3,
+    "testsPassed": 53,
+    "exitCode": 0
+  },
+  "typecheck": { "command": "node node_modules/typescript/bin/tsc --noEmit", "exitCode": 0 },
+  "evidenceConsistency": {
+    "jsonFilesParsed": 116,
+    "outcomeFilesChecked": 22,
+    "artifactStructuresValid": 12,
+    "firstFinalArtifactMatches": 12,
+    "outsideFixtureOutputOmissionsWithHashAndBytes": 5,
+    "note": "Counts were collected before adding this verification record and include explicitly excluded setup records; they are integrity counts, not behavioral success numerators."
+  },
+  "privacyAndEncodingReview": {
+    "retrospectiveSanitization": "JSON parse then recursive path redaction; outside-fixture tool output omitted with SHA256 and byte count; original record hash retained.",
+    "accountPathAndUsernameMatchesRemaining": 0,
+    "targetedCredentialAuthMetadataQuotaPatternsRemaining": 0,
+    "unicodeReplacementCharacters": 0,
+    "manualBehaviorReview": "See grades.md for independent original/corrected population grades, timeout artifacts and known scope failures."
+  },
+  "integration": "Root agent will run combined tests/build/runtime/browser on merged main; no full current branch build or live hosted release is claimed here."
+}
