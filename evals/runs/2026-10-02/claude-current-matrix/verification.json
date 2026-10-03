@@ -1,0 +1,396 @@
+{
+  "sourceRevision": "28eee28ae589b8e7ea4d2e2e47ee33e03ca2ac26",
+  "verifiedAt": "2026-10-03T01:52:15.663Z",
+  "filesScanned": 52,
+  "replacementCharacters": 0,
+  "privatePathHits": 0,
+  "selectedEventPrivacy": "No reasoning/rate-limit/account-init metadata retained; fixture-private paths recursively redacted; manual full-trace review remains required.",
+  "sources": [
+    {
+      "path": "lib/pack.ts",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "lib/schema.ts",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "skills/check-contract/SKILL.md",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "skills/amend-contract/SKILL.md",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "skills/merge-contract/SKILL.md",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/contract-files.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/contract-record.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/contract-types.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/contract-workflow.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/grill.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/host-credentials.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/http.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/member-storage.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/merge-input.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/merge-preflight.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/pack-files.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/pack-install.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/package.json",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/publication-capability.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/publication-recovery.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/room-key.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "cli/spec-format.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "evals/fixtures.mjs",
+      "matchesFrozenHash": true
+    },
+    {
+      "path": "scripts/run-agent-evals.mjs",
+      "matchesFrozenHash": true
+    }
+  ],
+  "members": [
+    {
+      "case": "member-frontend",
+      "firstEqualsFinal": true,
+      "firstStructure": {
+        "ok": true,
+        "missing": [],
+        "thin": [],
+        "errors": []
+      }
+    },
+    {
+      "case": "member-backend",
+      "firstEqualsFinal": true,
+      "firstStructure": {
+        "ok": true,
+        "missing": [],
+        "thin": [],
+        "errors": []
+      }
+    },
+    {
+      "case": "member-database",
+      "firstEqualsFinal": true,
+      "firstStructure": {
+        "ok": true,
+        "missing": [],
+        "thin": [],
+        "errors": []
+      }
+    },
+    {
+      "case": "member-auth",
+      "firstEqualsFinal": true,
+      "firstStructure": {
+        "ok": true,
+        "missing": [],
+        "thin": [],
+        "errors": []
+      }
+    },
+    {
+      "case": "member-qa",
+      "firstEqualsFinal": true,
+      "firstStructure": {
+        "ok": true,
+        "missing": [],
+        "thin": [],
+        "errors": []
+      }
+    }
+  ],
+  "phases": [
+    {
+      "case": "clean-amendment",
+      "phase": "check",
+      "durationMs": 104505,
+      "completed": true,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5"
+      ],
+      "estimatedCostUsd": 0.47438949999999996,
+      "permissionDenials": 0,
+      "exactSpecGates": 1,
+      "exactGateOutputs": [
+        "{\"ok\":true,\"missing\":[],\"thin\":[],\"errors\":[]}"
+      ],
+      "writes": 1,
+      "edits": 0
+    },
+    {
+      "case": "clean-baseline",
+      "phase": "check",
+      "durationMs": 90437,
+      "completed": true,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5"
+      ],
+      "estimatedCostUsd": 0.417747,
+      "permissionDenials": 1,
+      "exactSpecGates": 0,
+      "exactGateOutputs": [],
+      "writes": 1,
+      "edits": 0
+    },
+    {
+      "case": "clean-no-local-role",
+      "phase": "check",
+      "durationMs": 116353,
+      "completed": true,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5"
+      ],
+      "estimatedCostUsd": 0.542416,
+      "permissionDenials": 2,
+      "exactSpecGates": 0,
+      "exactGateOutputs": [],
+      "writes": 1,
+      "edits": 0
+    },
+    {
+      "case": "member-auth",
+      "phase": "interview",
+      "durationMs": 46146,
+      "completed": true,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5"
+      ],
+      "estimatedCostUsd": 0.225408,
+      "permissionDenials": 0,
+      "exactSpecGates": 0,
+      "exactGateOutputs": [],
+      "writes": 0,
+      "edits": 0
+    },
+    {
+      "case": "member-auth",
+      "phase": "write",
+      "durationMs": 60104,
+      "completed": true,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5"
+      ],
+      "estimatedCostUsd": 0.2534035,
+      "permissionDenials": 1,
+      "exactSpecGates": 1,
+      "exactGateOutputs": [
+        "{\"ok\":true,\"missing\":[],\"thin\":[],\"errors\":[]}"
+      ],
+      "writes": 1,
+      "edits": 0
+    },
+    {
+      "case": "member-backend",
+      "phase": "interview",
+      "durationMs": 64837,
+      "completed": true,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5"
+      ],
+      "estimatedCostUsd": 0.3216895,
+      "permissionDenials": 0,
+      "exactSpecGates": 0,
+      "exactGateOutputs": [],
+      "writes": 0,
+      "edits": 0
+    },
+    {
+      "case": "member-backend",
+      "phase": "write",
+      "durationMs": 98916,
+      "completed": true,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5"
+      ],
+      "estimatedCostUsd": 0.4307795,
+      "permissionDenials": 1,
+      "exactSpecGates": 1,
+      "exactGateOutputs": [
+        "{\"ok\":true,\"missing\":[],\"thin\":[],\"errors\":[]}"
+      ],
+      "writes": 1,
+      "edits": 0
+    },
+    {
+      "case": "member-database",
+      "phase": "interview",
+      "durationMs": 45284,
+      "completed": true,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5"
+      ],
+      "estimatedCostUsd": 0.24042249999999998,
+      "permissionDenials": 0,
+      "exactSpecGates": 0,
+      "exactGateOutputs": [],
+      "writes": 0,
+      "edits": 0
+    },
+    {
+      "case": "member-database",
+      "phase": "write",
+      "durationMs": 75911,
+      "completed": true,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5"
+      ],
+      "estimatedCostUsd": 0.306482,
+      "permissionDenials": 0,
+      "exactSpecGates": 1,
+      "exactGateOutputs": [
+        "{\"ok\":true,\"missing\":[],\"thin\":[],\"errors\":[]}"
+      ],
+      "writes": 1,
+      "edits": 0
+    },
+    {
+      "case": "member-frontend",
+      "phase": "interview",
+      "durationMs": 46992,
+      "completed": true,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5"
+      ],
+      "estimatedCostUsd": 0.2571155,
+      "permissionDenials": 0,
+      "exactSpecGates": 0,
+      "exactGateOutputs": [],
+      "writes": 0,
+      "edits": 0
+    },
+    {
+      "case": "member-frontend",
+      "phase": "write",
+      "durationMs": 89005,
+      "completed": true,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5"
+      ],
+      "estimatedCostUsd": 0.34220849999999997,
+      "permissionDenials": 0,
+      "exactSpecGates": 1,
+      "exactGateOutputs": [
+        "{\"ok\":true,\"missing\":[],\"thin\":[],\"errors\":[]}"
+      ],
+      "writes": 1,
+      "edits": 0
+    },
+    {
+      "case": "member-qa",
+      "phase": "interview",
+      "durationMs": 51796,
+      "completed": true,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5"
+      ],
+      "estimatedCostUsd": 0.2501665,
+      "permissionDenials": 0,
+      "exactSpecGates": 0,
+      "exactGateOutputs": [],
+      "writes": 0,
+      "edits": 0
+    },
+    {
+      "case": "member-qa",
+      "phase": "write",
+      "durationMs": 78124,
+      "completed": true,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5"
+      ],
+      "estimatedCostUsd": 0.325678,
+      "permissionDenials": 0,
+      "exactSpecGates": 1,
+      "exactGateOutputs": [
+        "{\"ok\":true,\"missing\":[],\"thin\":[],\"errors\":[]}"
+      ],
+      "writes": 1,
+      "edits": 0
+    },
+    {
+      "case": "seeded-drift",
+      "phase": "check",
+      "durationMs": 113918,
+      "completed": true,
+      "model": "claude-opus-5[1m]",
+      "assistantModels": [
+        "claude-opus-5"
+      ],
+      "estimatedCostUsd": 0.503602,
+      "permissionDenials": 0,
+      "exactSpecGates": 0,
+      "exactGateOutputs": [],
+      "writes": 1,
+      "edits": 0
+    }
+  ]
+}
