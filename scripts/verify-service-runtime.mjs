@@ -19,6 +19,7 @@ const key = `r_${"0".repeat(32)}`;
 const endpoints = [
   ["/api/rooms", "POST"], [`/api/room/${key}`, "GET"],
   [`/api/room/${key}/claim`, "POST"], [`/api/room/${key}/republish`, "POST"],
+  [`/api/room/${key}`, "DELETE"],
   ["/api/skills/host", "GET"], [`/r/${key}`, "GET"], [`/r/${key}/host`, "GET"],
 ];
 const fixtureRoom = { schemaVersion: 1, project: { name: "Runtime fixture", idea: "Check compiled errors.", mode: "production" }, roles: [{ slug: "frontend", name: "Frontend", description: "UI." }] };
@@ -33,13 +34,14 @@ async function freePort() {
 
 async function withApp(overrides, check) {
   const port = await freePort();
-  const env = { ...process.env, SUPABASE_URL: "", SUPABASE_SERVICE_KEY: "", VERCEL: "", GRILL_TRUST_PROXY: "", ...overrides };
+  const env = { ...process.env, SUPABASE_URL: "", SUPABASE_SERVICE_KEY: "", CRON_SECRET: "", VERCEL: "", GRILL_TRUST_PROXY: "", ...overrides };
   const server = spawn(process.execPath, ["--import", pathToFileURL(shim).href, "node_modules/next/dist/bin/next", "start", "--hostname", "127.0.0.1", "--port", String(port)], { env, stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
   const exited = once(server, "exit");
   let stderr = "";
   server.stderr.on("data", (chunk) => { stderr = (stderr + chunk).slice(-8000); });
-  const call = (path, body, token) => fetch(`http://127.0.0.1:${port}${path}`, {
+  const call = (path, body, token, method) => fetch(`http://127.0.0.1:${port}${path}`, {
     ...(body ? { method: "POST", body: typeof body === "string" ? body : JSON.stringify(body) } : {}),
+    ...(method ? { method } : {}),
     headers: token ? { authorization: `Bearer ${token}` } : {},
     signal: AbortSignal.timeout(5000),
   });
@@ -73,7 +75,7 @@ await new Promise((resolve, reject) => { fake.once("error", reject); fake.listen
 try {
   await withApp({ NODE_ENV: "test", GRILL_STORE: "supabase", SUPABASE_URL: `http://127.0.0.1:${fake.address().port}`, SUPABASE_SERVICE_KEY: "test-only-service-key" }, async (call) => {
     for (const [path, method] of endpoints) {
-      const response = await call(path, method === "POST" ? "{invalid" : undefined);
+      const response = await call(path, method === "POST" ? "{invalid" : undefined, undefined, method);
       assert.equal(response.status, 429, path);
       assert.equal(response.headers.get("retry-after"), "37", path);
       assert(response.headers.get("cache-control").includes("no-store"), path);
@@ -82,37 +84,54 @@ try {
     assert(calls.every((call) => /^[a-f0-9]{64}$/.test(call.body.p_bucket)));
     rpcStatus = 500;
     for (const [path, method] of endpoints) {
-      const response = await call(path, method === "POST" ? "{invalid" : undefined);
+      const response = await call(path, method === "POST" ? "{invalid" : undefined, undefined, method);
       assert.equal(response.status, 503, path);
       assert(!(await response.text()).includes("private database details"));
     }
   });
   console.log("PASS: compiled API/page quota429+Retry-After and cross-bundle backend503");
 
-  await withApp({ NODE_ENV: "test", GRILL_STORE: "memory" }, async (call) => {
+  const maintenanceSecret = "fixture-only-maintenance-secret-123456";
+  await withApp({ NODE_ENV: "test", GRILL_STORE: "memory", CRON_SECRET: maintenanceSecret }, async (call) => {
     const published = await call("/api/rooms", fixtureRoom);
     assert.equal(published.status, 201);
     const { key, hostToken } = await published.json();
+    assert.equal((await call(`/api/room/${key}`, undefined, undefined, "DELETE")).status, 401);
+    assert.equal((await call(`/api/room/${key}`, undefined, "wrong-token", "DELETE")).status, 403);
     assert.equal((await call(`/api/room/${key}/claim`, { role: "frontend", displayName: "Alice" })).status, 200);
     assert.equal((await call(`/api/room/${key}/claim`, { role: "missing", displayName: "Alice" })).status, 404);
     assert.equal((await call(`/api/room/${key}/republish`, fixtureRoom, "wrong-token")).status, 403);
     const missing = `r_${"f".repeat(32)}`;
     assert.equal((await call(`/api/room/${missing}/claim`, { role: "frontend", displayName: "Alice" })).status, 404);
     assert.equal((await call(`/api/room/${missing}/republish`, fixtureRoom, hostToken)).status, 404);
+    assert.equal((await call(`/api/room/${missing}`, undefined, hostToken, "DELETE")).status, 404);
+    const oldRoom = await (await call("/api/rooms", fixtureRoom)).json();
+    assert.equal((await call("/api/maintenance/purge")).status, 401);
     await writeFile(marker, "advance");
     assert.equal((await call(`/api/room/${key}`)).status, 404);
     assert.equal((await call(`/api/room/${key}/claim`, { role: "frontend", displayName: "Alice" })).status, 404);
     assert.equal((await call(`/api/room/${key}/republish`, fixtureRoom, hostToken)).status, 404);
+    assert.equal((await call(`/api/room/${key}`, undefined, hostToken, "DELETE")).status, 200);
+    assert.equal((await call(`/api/room/${key}`, undefined, hostToken, "DELETE")).status, 404);
+    const purged = await call("/api/maintenance/purge", undefined, maintenanceSecret);
+    assert.equal(purged.status, 200);
+    assert.equal((await purged.json()).roomsDeleted, 1);
+    assert.equal((await call(`/api/room/${oldRoom.key}`, undefined, oldRoom.hostToken, "DELETE")).status, 404);
+    const repeated = await call("/api/maintenance/purge", undefined, maintenanceSecret, "POST");
+    assert.equal(repeated.status, 200);
+    assert.equal((await repeated.json()).roomsDeleted, 0);
   });
   console.log("PASS: cached compiled store preserves token403 and missing/expired role/room404");
+  console.log("PASS: compiled host DELETE and authenticated GET/POST retention physically remove memory rows");
 
   for (const mode of ["supabase", "memory"]) {
     await withApp({ NODE_ENV: "production", GRILL_STORE: mode }, async (call) => {
       for (const [path, method] of endpoints) {
-        const response = await call(path, method === "POST" ? fixtureRoom : undefined, "private-host-token");
+        const response = await call(path, method === "POST" ? fixtureRoom : undefined, "private-host-token", method);
         assert.equal(response.status, 503, path);
         assert(!(await response.text()).includes("private-host-token"));
       }
+      assert.equal((await call("/api/maintenance/purge")).status, 503);
     });
   }
   console.log("PASS: absent storage and forbidden production memory return503 for compiled APIs/pages");
