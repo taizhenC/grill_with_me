@@ -1,0 +1,9 @@
+{
+  "source": "First nonempty file observed at 10ms intervals; check tool trace for later corrections",
+  "structure": {
+    "ok": true,
+    "missing": [],
+    "thin": [],
+    "errors": []
+  }
+}
