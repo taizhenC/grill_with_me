@@ -132,7 +132,8 @@ test("stalled publication is cancelled under one deadline and cannot trigger dup
   await expect(page.getByRole("button", { name: "Publish this" })).toBeDisabled();
   await page.clock.fastForward(15_000);
   await expect(page.getByRole("alert", { name: "Publication status" })).toContainText("Could not confirm publication");
-  await expect(page.getByRole("button", { name: "Publish this" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Publish this" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Recover saved publication" })).toBeEnabled();
   expect(calls).toBe(1);
 });
 
@@ -155,4 +156,84 @@ test("untrusted forwarded origins cannot enter links or printed shell commands",
   expect(html).not.toContain("evil.example");
   expect(html).not.toContain("touch sentinel");
   expect(html).toContain("--base http://127.0.0.1:3108");
+});
+
+test("a committed publication with a lost reply recovers the same room and token after reload", async ({ page }) => {
+  let committed: { key: string; hostToken: string } | undefined;
+  let capability = "";
+  await page.route("**/api/rooms", async (route) => {
+    capability = route.request().headers()["idempotency-key"];
+    expect(capability).toMatch(/^v1\.[0-9]+\.[a-f0-9]{64}$/);
+    const response = await route.fetch();
+    expect(response.status()).toBe(201);
+    committed = await response.json();
+    await route.abort("connectionreset");
+  });
+  await page.goto("/");
+  await page.getByText("Can't drag a file here? Paste it instead").click();
+  await page.getByRole("textbox", { name: "Room JSON" }).fill(JSON.stringify(room));
+  await page.getByRole("button", { name: "Publish this" }).click();
+  await expect(page.getByRole("alert", { name: "Publication status" })).toContainText("A room may have been created");
+  await expect(page.getByText(capability, { exact: false })).toHaveCount(0);
+  await page.unroute("**/api/rooms");
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Recover saved publication" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Publish this" })).toBeDisabled();
+  const replay = page.waitForRequest("**/api/rooms");
+  await page.getByRole("button", { name: "Recover saved publication" }).click();
+  expect((await replay).headers()["idempotency-key"]).toBe(capability);
+  await expect(page.getByRole("heading", { name: "✓ Room published" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "host view" })).toHaveAttribute("href", `/r/${committed!.key}/host`);
+  await expect(page.getByRole("button", { name: "copy token", exact: true }).locator("..").locator("code")).toHaveText(committed!.hostToken);
+  await page.getByRole("button", { name: "I saved my host token" }).click();
+  expect(await page.evaluate(() => sessionStorage.getItem("grill-with-me.publication.v1"))).toBeNull();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Recover saved publication" })).toHaveCount(0);
+});
+
+test("blocked session storage prevents sending an unrecoverable publication", async ({ page }) => {
+  await page.addInitScript(() => { Storage.prototype.setItem = () => { throw new DOMException("blocked", "SecurityError"); }; });
+  let calls = 0;
+  await page.route("**/api/rooms", (route) => { calls++; return route.abort(); });
+  await page.goto("/");
+  await page.getByText("Can't drag a file here? Paste it instead").click();
+  await page.getByRole("textbox", { name: "Room JSON" }).fill(JSON.stringify(room));
+  await page.getByRole("button", { name: "Publish this" }).click();
+  await expect(page.getByRole("alert", { name: "Publication status" })).toContainText("No request was sent");
+  expect(calls).toBe(0);
+});
+
+test("recovery of a host-deleted room fails without creating a replacement", async ({ page }) => {
+  const key = await pastePublish(page);
+  const token = (await page.getByRole("button", { name: "copy token", exact: true }).locator("..").locator("code").textContent())!;
+  expect((await page.request.delete(`/api/room/${key}`, { headers: { Authorization: `Bearer ${token}` } })).ok()).toBe(true);
+  await page.reload();
+  const reply = page.waitForResponse("**/api/rooms");
+  await page.getByRole("button", { name: "Recover saved publication" }).click();
+  expect((await reply).status()).toBe(410);
+  await expect(page.getByRole("alert", { name: "Publication status" })).toContainText("removed");
+  await expect(page.getByRole("heading", { name: "✓ Room published" })).toHaveCount(0);
+  expect((await page.request.get(`/api/room/${key}`)).status()).toBe(404);
+  await page.getByText("Can't drag a file here? Paste it instead").click();
+  await page.getByRole("textbox", { name: "Room JSON" }).fill(JSON.stringify(room));
+  await expect(page.getByRole("button", { name: "Publish this" })).toBeDisabled();
+});
+
+test("expired recovery stays visible and requires explicit discard before a new publication", async ({ page }) => {
+  await page.addInitScript((brief) => {
+    sessionStorage.setItem("grill-with-me.publication.v1", JSON.stringify({ version: 1, origin: location.origin,
+      body: JSON.stringify(brief), capability: `v1.${Math.floor(Date.now() / 1000) - 86401}.${"a".repeat(64)}` }));
+  }, room);
+  let calls = 0;
+  await page.route("**/api/rooms", (route) => { calls++; return route.abort(); });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Recover saved publication" }).click();
+  await expect(page.getByRole("alert", { name: "Publication status" })).toContainText("Check the original outcome");
+  expect(calls).toBe(0);
+  await page.getByText("Can't drag a file here? Paste it instead").click();
+  await page.getByRole("textbox", { name: "Room JSON" }).fill(JSON.stringify(room));
+  await expect(page.getByRole("button", { name: "Publish this" })).toBeDisabled();
+  await page.getByRole("button", { name: "Discard saved attempt" }).click();
+  await expect(page.getByRole("button", { name: "Publish this" })).toBeEnabled();
+  expect(await page.evaluate(() => sessionStorage.getItem("grill-with-me.publication.v1"))).toBeNull();
 });
