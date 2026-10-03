@@ -210,23 +210,23 @@ export async function createFixture(caseId, directory) {
     delete files[`grill/${entry.role.slug}-spec.md`];
     Object.assign(files, await installedMember(directory, render, room, entry.role.slug));
   } else {
-    files["src/api.ts"] = `import type { TicketDatabase } from '../db/adapter';
+    files["src/api.ts"] = `import type { TicketDatabase, TicketRow } from '../db/adapter';
 export const paths = { list: "/api/tickets", close: "/api/tickets/:id/close" };
 export async function listTickets(database: TicketDatabase) {
   const result = await database.query("SELECT id, title, closed FROM tickets", []);
   return { tickets: result.rows };
 }
 export async function closeTicket(id: string, database: TicketDatabase) {
-  const result = await database.query("UPDATE tickets SET closed = TRUE WHERE id = $1 RETURNING id, closed", [id]);
+  const result = await database.query<Pick<TicketRow, "id" | "closed">>("UPDATE tickets SET closed = TRUE WHERE id = $1 RETURNING id, closed", [id]);
   return result.rows[0];
 }
 `;
     files["db/adapter.ts"] = `export type TicketRow = { id: string; title: string; closed: boolean };
 export type TicketDatabase = {
-  query(sql: string, parameters: readonly unknown[]): Promise<{ rows: TicketRow[] }>;
+  query<Row extends object = TicketRow>(sql: string, parameters: readonly unknown[]): Promise<{ rows: Row[] }>;
 };
 export function ticketDatabase(driver: TicketDatabase): TicketDatabase {
-  return { query(sql, parameters) { return driver.query(sql, parameters); } };
+  return { query<Row extends object = TicketRow>(sql: string, parameters: readonly unknown[]) { return driver.query<Row>(sql, parameters); } };
 }
 `;
     files["check-contract.md"] = await readFile(join(repository, "skills/check-contract/SKILL.md"), "utf8");

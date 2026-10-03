@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir, homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { cases, createFixture } from "../evals/fixtures.mjs";
 import { selectedEvents, assistantText, invoke, redactEvidence, homeReadFindings, redactForeignOutputs } from "../scripts/run-agent-evals.mjs";
+import ts from "typescript";
 
 const directories = [];
 async function temporary() {
@@ -20,6 +21,30 @@ afterEach(async () => {
 });
 
 describe("reproducible live-agent evaluation inputs", () => {
+  it("typechecks actual list and close query projections without promising a title on close", async () => {
+    const directory = await temporary();
+    await createFixture("clean-baseline", directory);
+    const consumer = join(directory, "projection-check.ts");
+    await writeFile(consumer, `import { listTickets, closeTicket } from './src/api';
+import type { TicketDatabase } from './db/adapter';
+declare const database: TicketDatabase;
+async function verify() {
+  const listed = await listTickets(database);
+  listed.tickets[0].title;
+  const closed = await closeTicket('t1', database);
+  closed.id;
+  closed.closed;
+  // @ts-expect-error The close SQL projection does not include title.
+  closed.title;
+}
+`);
+    const program = ts.createProgram([consumer], { target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler,
+      strict: true, noEmit: true, types: [], skipLibCheck: true });
+    const diagnostics = ts.getPreEmitDiagnostics(program);
+    expect(diagnostics.map(d => ts.flattenDiagnosticMessageText(d.messageText, "\n"))).toEqual([]);
+  }, 15_000);
+
   it("installs the real member pack while hiding respondent facts and leaving a fresh output path", async () => {
     const directory = await temporary();
     const { files, entry } = await createFixture("member-frontend", directory);
